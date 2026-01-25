@@ -1,0 +1,6 @@
+# Cloudflare Pages configuration for ContextBrain documentation
+name = "contextbrain-docs"
+compatibility_date = "2024-01-01"
+
+# For Cloudflare Pages deployment
+# Use: wrangler pages deploy dist --project-name="contextbrain-docs" --branch=main
