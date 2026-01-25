@@ -1,0 +1,68 @@
+---
+title: ContextCommerce
+description: Django-based E-commerce Platform with AI Agents
+template: splash
+hero:
+  tagline: Intelligent e-commerce platform powered by Django and ContextUnity agents. Admin copilot, Horoshop integration, and automated content workflows.
+  image:
+    file: ../../assets/commerce-image.jpg
+    alt: ContextCommerce - Intelligent E-commerce Platform
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/ContextUnity/contextcommerce
+      icon: external
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Admin Copilot" icon="puzzle">
+    Interactive Django Admin UI with chat and tools. AI agents help manage products, brands, and content with natural language commands.
+  </Card>
+  <Card title="Horoshop Integration" icon="rocket">
+    Native Horoshop API integration for automated product sync, pricing, and inventory management. Read/write operations with full audit trails.
+  </Card>
+  <Card title="AI Agents" icon="laptop">
+    Five specialized agents: Overlord, Matcher, Lexicon, Mutator, and Gardener. Each handles specific workflows from product matching to content generation.
+  </Card>
+  <Card title="Vector Knowledge Base" icon="database">
+    Multi-tenant vector-enabled knowledge base for products, brands, categories, and articles. Integrates with ContextBrain for semantic search.
+  </Card>
+</CardGrid>
+
+## Why ContextCommerce?
+
+ContextCommerce combines Django's robust e-commerce framework with ContextUnity's AI capabilities:
+
+- **Intelligent Product Management** — AI agents automate matching, content generation, and taxonomy
+- **Admin Copilot** — Natural language interface for managing products and content
+- **Horoshop Sync** — Automated synchronization with Horoshop API
+- **Vector Search** — Semantic search across products, brands, and articles
+
+## Quick Links
+
+<CardGrid>
+  <LinkCard title="Installation" href="/getting-started/installation/" description="Get ContextCommerce running with Django." />
+  <LinkCard title="Architecture" href="/architecture/" description="System architecture and component overview." />
+  <LinkCard title="Agents" href="/agents/" description="Learn about the five specialized AI agents." />
+  <LinkCard title="Horoshop Integration" href="/architecture/horoshop/" description="API integration and synchronization." />
+</CardGrid>
+
+## Open Source First
+
+ContextCommerce is built for the ContextUnity ecosystem:
+
+- **Apache 2.0 License** — Use it commercially, modify it, contribute back
+- **Django Integration** — Built on Django Oscar e-commerce framework
+- **ContextUnity Native** — Full integration with ContextBrain, ContextRouter, and ContextWorker
+- **Production Tested** — Used in real-world e-commerce applications
+
+---
+
+### Enterprise & Production
+
+For teams needing advanced security, multi-tenancy, or enterprise integrations, we offer production deployment options at [contextcommerce.dev](https://contextcommerce.dev).

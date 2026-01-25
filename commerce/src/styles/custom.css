@@ -1,0 +1,275 @@
+/* ContextRouter Theme - Blue/Purple Gradient Style */
+
+:root {
+  /* Brand colors matching the logo */
+  --cr-blue: #1a73e8;
+  --cr-blue-light: #4da3ff;
+  --cr-purple: #9c6ade;
+  --cr-purple-light: #c4a1ff;
+  --cr-teal: #00bfa5;
+  --cr-teal-light: #64ffda;
+  
+  /* Gradients */
+  --cr-gradient-primary: linear-gradient(135deg, #1a73e8 0%, #9c6ade 100%);
+  --cr-gradient-secondary: linear-gradient(135deg, #4da3ff 0%, #c4a1ff 100%);
+  --cr-gradient-glow: linear-gradient(135deg, rgba(26, 115, 232, 0.2) 0%, rgba(156, 106, 222, 0.2) 100%);
+  
+  /* Override Starlight accent */
+  --sl-color-accent: #1a73e8;
+  --sl-color-accent-high: #4da3ff;
+  --sl-color-accent-low: rgba(26, 115, 232, 0.15);
+  
+  /* Fonts */
+  --sl-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --sl-font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+/* Dark mode adjustments */
+:root[data-theme='dark'] {
+  --sl-color-accent: #4da3ff;
+  --sl-color-accent-high: #7cc4ff;
+  --sl-color-accent-low: rgba(77, 163, 255, 0.2);
+}
+
+/* ===== HERO SECTION ===== */
+
+.hero {
+  padding-block: 3rem;
+}
+
+.hero img {
+  border-radius: 16px;
+  box-shadow: 
+    0 4px 20px rgba(26, 115, 232, 0.15),
+    0 8px 40px rgba(156, 106, 222, 0.1);
+  max-width: 400px;
+}
+
+/* Hero title gradient */
+.hero h1 {
+  background: var(--cr-gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===== BUTTONS ===== */
+
+/* Primary button - gradient style */
+.sl-link-button[data-variant='primary'],
+a.sl-link-button[data-variant='primary'] {
+  background: var(--cr-gradient-primary) !important;
+  border: none !important;
+  color: white !important;
+  font-weight: 600;
+  padding: 0.875rem 1.75rem;
+  border-radius: 12px;
+  box-shadow: 
+    0 4px 14px rgba(26, 115, 232, 0.35),
+    0 2px 6px rgba(156, 106, 222, 0.2);
+  transition: all 0.3s ease;
+  text-decoration: none !important;
+}
+
+.sl-link-button[data-variant='primary']:hover,
+a.sl-link-button[data-variant='primary']:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 6px 20px rgba(26, 115, 232, 0.45),
+    0 4px 12px rgba(156, 106, 222, 0.3);
+  filter: brightness(1.05);
+}
+
+/* Secondary button - outline with gradient border */
+.sl-link-button:not([data-variant='primary']),
+a.sl-link-button:not([data-variant='primary']) {
+  background: transparent !important;
+  border: 2px solid transparent !important;
+  background-image: linear-gradient(var(--sl-color-bg), var(--sl-color-bg)), var(--cr-gradient-primary) !important;
+  background-origin: border-box !important;
+  background-clip: padding-box, border-box !important;
+  color: var(--cr-blue) !important;
+  font-weight: 600;
+  padding: 0.875rem 1.75rem;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  text-decoration: none !important;
+}
+
+:root[data-theme='dark'] .sl-link-button:not([data-variant='primary']),
+:root[data-theme='dark'] a.sl-link-button:not([data-variant='primary']) {
+  color: var(--cr-blue-light) !important;
+}
+
+.sl-link-button:not([data-variant='primary']):hover,
+a.sl-link-button:not([data-variant='primary']):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(26, 115, 232, 0.2);
+}
+
+/* ===== CARDS ===== */
+
+.card {
+  background: var(--sl-color-bg);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 16px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--cr-gradient-primary);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: var(--cr-blue);
+  box-shadow: 
+    0 8px 24px rgba(26, 115, 232, 0.12),
+    0 4px 12px rgba(156, 106, 222, 0.08);
+}
+
+.card:hover::before {
+  opacity: 1;
+}
+
+/* Card icons - gradient color */
+.card [data-icon] {
+  color: var(--cr-blue);
+}
+
+/* ===== LINK CARDS ===== */
+
+.sl-link-card {
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  border: 1px solid var(--sl-color-gray-5);
+}
+
+.sl-link-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--cr-purple);
+  box-shadow: 0 6px 20px rgba(156, 106, 222, 0.15);
+}
+
+/* ===== CODE BLOCKS ===== */
+
+.expressive-code pre {
+  border-radius: 12px;
+  font-size: 0.875rem;
+  border: 1px solid var(--sl-color-gray-5);
+}
+
+/* ===== TABLES ===== */
+
+table {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--sl-color-gray-5);
+}
+
+table th {
+  background: var(--cr-gradient-glow);
+  font-weight: 600;
+}
+
+table tr:hover {
+  background: rgba(26, 115, 232, 0.04);
+}
+
+/* ===== INLINE CODE ===== */
+
+:not(pre) > code {
+  padding: 0.2em 0.5em;
+  border-radius: 6px;
+  font-size: 0.875em;
+  background: var(--sl-color-gray-6);
+}
+
+/* ===== LINKS ===== */
+
+.sl-markdown-content a:not(.card):not(.sl-link-button):not(.sl-link-card) {
+  color: var(--cr-blue);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: all 0.2s ease;
+}
+
+.sl-markdown-content a:not(.card):not(.sl-link-button):not(.sl-link-card):hover {
+  color: var(--cr-purple);
+  text-decoration-thickness: 2px;
+}
+
+/* ===== BLOCKQUOTES ===== */
+
+blockquote {
+  border-left: 4px solid;
+  border-image: var(--cr-gradient-primary) 1;
+  border-radius: 0 12px 12px 0;
+  padding: 1rem 1.5rem;
+  background: var(--cr-gradient-glow);
+}
+
+/* ===== SIDEBAR ===== */
+
+.sidebar-content {
+  scrollbar-width: thin;
+}
+
+nav[aria-label="Main"] a[aria-current="page"] {
+  background: var(--cr-gradient-glow);
+  border-radius: 8px;
+}
+
+/* ===== HEADINGS ===== */
+
+.sl-markdown-content h2 {
+  border-bottom: 2px solid transparent;
+  border-image: var(--cr-gradient-primary) 1;
+  padding-bottom: 0.5rem;
+}
+
+/* ===== CALLOUTS/ASIDES ===== */
+
+.starlight-aside {
+  border-radius: 12px;
+}
+
+.starlight-aside--tip {
+  border-color: var(--cr-teal);
+}
+
+.starlight-aside--note {
+  border-color: var(--cr-blue);
+}
+
+/* ===== ANIMATIONS ===== */
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 768px) {
+  .hero img {
+    max-width: 280px;
+  }
+  
+  .sl-link-button {
+    padding: 0.75rem 1.25rem !important;
+  }
+}
