@@ -1,0 +1,69 @@
+---
+title: ContextRouter
+description: Modular AI Agent Framework
+template: splash
+hero:
+  tagline: High-performance agent orchestration framework powered by LangGraph. Build production-ready AI agents with modular components and multi-source knowledge integration.
+  image:
+    file: ../../assets/cr-image-big.jpg
+    alt: ContextRouter - The Open Source Framework for Intelligent Agents
+  actions:
+    - text: Get Started
+      link: /getting-started/
+      icon: right-arrow
+      variant: primary
+    - text: View on GitHub
+      link: https://github.com/ContextRouter/contextrouter
+      icon: external
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Modular & Extensible" icon="puzzle">
+    Swap LLMs, data connectors, and storage providers with zero friction. Build custom agent workflows for any use case.
+  </Card>
+  <Card title="LangGraph Powered" icon="rocket">
+    Sophisticated state management and conditional routing using LangGraph. Designed for complex, multi-step agentic workflows.
+  </Card>
+  <Card title="Universal Model Support" icon="laptop">
+    Native support for OpenAI, Anthropic, Google Vertex AI, Groq, and local models via Ollama, vLLM, or HuggingFace.
+  </Card>
+  <Card title="Secure by Design" icon="approve-check">
+    Built-in data provenance and security tracing via the Bisquit protocol. Full audit trail for every decision.
+  </Card>
+</CardGrid>
+
+## Why ContextRouter?
+
+Traditional agent frameworks are tightly coupled to specific LLMs or data sources. ContextRouter breaks these dependencies by separating **Decision Logic** from **Technical Implementation**.
+
+This means you can:
+- **Switch providers instantly** — Move from OpenAI to Vertex to local Ollama without code changes
+- **Scale independently** — Upgrade your vector database without touching agent logic
+- **Test in isolation** — Mock any component for reliable unit testing
+- **Future-proof your stack** — New models and databases plug in seamlessly
+
+## Quick Links
+
+<CardGrid>
+  <LinkCard title="Installation" href="/getting-started/installation/" description="Get ContextRouter running in minutes with pip or uv." />
+  <LinkCard title="Quick Start" href="/getting-started/quickstart/" description="Build your first agent with a simple example." />
+  <LinkCard title="Models" href="/models/" description="Configure LLMs from Vertex, OpenAI, Anthropic, or local providers." />
+  <LinkCard title="Orchestration" href="/orchestration/" description="Agent graph building, state management, and workflow orchestration." />
+</CardGrid>
+
+## Open Source First
+
+ContextRouter is built for the community with transparency and flexibility at its core:
+
+- **Apache 2.0 License** — Use it commercially, modify it, contribute back
+- **Active Development** — Regular releases with community input
+- **Extensible Architecture** — Plugin system for custom connectors, providers, and workflows
+- **Production Tested** — Used in real-world applications handling thousands of queries
+
+---
+
+### Enterprise & Production
+
+For teams needing advanced security, multi-tenancy, or enterprise integrations, we offer production deployment options at [contextrouter.dev](https://contextrouter.dev).
