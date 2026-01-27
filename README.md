@@ -23,7 +23,7 @@ docs/
 ├── commerce/      # ContextCommerce documentation (contextcommerce.dev)
 ├── shield/        # ContextShield documentation (contextshield.dev) - Coming soon
 ├── zero/          # ContextZero documentation (contextzero.dev) - Coming soon
-├── worker/        # ContextWorker documentation (contextworker.dev) - Coming soon
+├── worker/        # ContextWorker documentation (contextworker.dev)
 ├── spatial/       # ContextSpatial documentation (contextspatial.dev) - Coming soon
 ├── view/          # ContextView documentation (contextview.dev) - Coming soon
 └── workshop/      # ContextWorkshop documentation (contextworkshop.dev) - Coming soon
