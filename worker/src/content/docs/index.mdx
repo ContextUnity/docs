@@ -1,6 +1,6 @@
 ---
 title: ContextWorker
-description: Job Runner and Automation for ContextUnity
+description: Temporal Worker Infrastructure for ContextUnity
 template: splash
 hero:
   tagline: Background job processing and automation for the ContextUnity ecosystem. Powered by Temporal for reliable workflow orchestration.
@@ -23,36 +23,70 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
   <Card title="Temporal Workflows" icon="rocket">
     Reliable workflow orchestration with Temporal. Automatic retries, timeouts, and state management for complex job pipelines.
   </Card>
-  <Card title="Harvester Jobs" icon="database">
-    Automated data harvesting from 15+ suppliers. Fetch, transform, and sync inventory data on schedule.
+  <Card title="Module Discovery" icon="puzzle">
+    Automatically discovers modules from installed packages. Business logic lives in Commerce, Worker just orchestrates.
   </Card>
-  <Card title="Router Integration" icon="puzzle">
-    Import ContextRouter as a Python package. Invoke Commerce graphs directly - Gardener, Lexicon, Matcher subgraphs.
+  <Card title="Django ORM Support" icon="database">
+    Modules in Commerce use Django ORM directly. No SQL duplication, full model access.
   </Card>
-  <Card title="ContextUnit Security" icon="approve-check">
-    Full ContextUnit protocol support. All job executions are traced and audited with capability-based access control.
+  <Card title="Scalable" icon="approve-check">
+    Run multiple worker replicas independently from Django. Scale background processing separately.
   </Card>
 </CardGrid>
 
-## Why ContextWorker?
+## Architecture
 
-ContextWorker is the **automation backbone** that powers background processing across the ContextUnity ecosystem:
+```
+┌──────────────────────────────────────────────────────────────┐
+│                    ContextCommerce                            │
+│                                                               │
+│  modules/                                                     │
+│    harvester/   → Vendor data import                          │
+│    gardener/    → Product enrichment (Router graphs)          │
+│    sync/        → Channel sync (Horoshop, Prom)               │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+                            │
+                            │ depends on
+                            ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    ContextWorker                              │
+│                                                               │
+│  core/                                                        │
+│    registry.py  → Module discovery                            │
+│    worker.py    → Temporal worker factory                     │
+│                                                               │
+│  schedules.py   → Temporal schedule management                │
+│  __main__.py    → CLI entry point                             │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
+```
 
-- **Reliable Job Execution** — Temporal workflows ensure jobs complete even through failures
-- **Direct Router Integration** — Import `contextrouter` package, call graphs via Python
-- **Harvester Pipeline** — Automated data collection and transformation from multiple suppliers
-- **Shared Queue** — Redis queue shared between Worker and Router graphs
+Worker is **pure infrastructure**. All business logic lives in Commerce modules.
+
+## Quick Start
+
+```bash
+# Install Commerce (includes Worker)
+pip install contextcommerce
+
+# Run workers (discovers modules automatically)
+python -m contextworker
+
+# Create schedules
+python -m contextworker.schedules create --tenant-id myproject
+```
 
 ## Quick Links
 
 <CardGrid>
-  <LinkCard title="Installation" href="/getting-started/installation/" description="Get ContextWorker running with pip or uv." />
-  <LinkCard title="Harvester" href="/guides/harvester/" description="Configure data harvesting from suppliers." />
-  <LinkCard title="Workflows" href="/guides/workflows/" description="Build custom Temporal workflows." />
+  <LinkCard title="Installation" href="/getting-started/installation/" description="Get ContextWorker running." />
+  <LinkCard title="Harvester" href="/guides/harvester/" description="Vendor data import workflows." />
   <LinkCard title="Gardener" href="/guides/gardener/" description="Product taxonomy classification." />
+  <LinkCard title="Schedules" href="/guides/schedules/" description="Manage Temporal schedules." />
 </CardGrid>
 
-## Core Components
+## Commerce Modules
 
 ### Harvester Module
 
@@ -60,57 +94,53 @@ Automated inventory aggregation from 15+ outdoor gear suppliers:
 
 - **Fetchers** — HTTP, Email, and API-based data fetching
 - **Transformers** — XLSX, CSV, and YAML data normalization
-- **Scheduler** — Daily automated runs with configurable timing
-- **Notifications** — Email alerts for failures and stale data
+- **Django ORM** — Direct access to Commerce models
 
-### Router Integration
+### Gardener Module
 
-Worker imports ContextRouter as a **Python package**:
+Product enrichment via Router graphs:
 
-```python
-from contextrouter.cortex.queue import get_enrichment_queue
-from contextrouter.cortex.graphs.commerce import build_commerce_graph
+- **Taxonomy** — AI classification into category tree
+- **NER** — Named entity recognition (brands, materials)
+- **Knowledge Graph** — Product relationships
+
+### Sync Module
+
+Channel synchronization:
+
+- **Horoshop** — Ukrainian e-commerce platform
+- **Prom.ua** — Marketplace (planned)
+- **Rozetka** — Marketplace (planned)
+
+## Docker Compose
+
+```yaml
+services:
+  django:
+    image: commerce:latest
+    command: python manage.py runserver 0.0.0.0:8000
+    
+  worker:
+    image: commerce:latest  # Same image!
+    command: python -m contextworker
+    deploy:
+      replicas: 3  # Scale workers independently
+      
+  temporal:
+    image: temporalio/auto-setup:latest
 ```
-
-> Router is **not** an API service. It's a library that Worker imports directly.
-
-Graphs run in Worker process or as separate consumers:
-- **Gardener** — Product taxonomy classification (subgraph of Commerce)
-- **Lexicon** — AI content generation (subgraph of Commerce)
-- **Matcher** — Product deduplication (subgraph of Commerce)
-
-## Open Source First
-
-ContextWorker is built for the ContextUnity ecosystem:
-
-- **Apache 2.0 License** — Use it commercially, modify it, contribute back
-- **Temporal Integration** — Industry-standard workflow engine
-- **ContextUnity Native** — Full integration with Commerce, Brain, and Router
-- **Production Tested** — Running real-world harvesting and enrichment pipelines
 
 ---
 
-### Configuration
-
-ContextWorker uses environment variables for configuration:
+## Configuration
 
 ```bash
 # Temporal
 TEMPORAL_HOST=localhost:7233
-TEMPORAL_NAMESPACE=contextworker
 
-# Database (shared with Commerce)
+# Database (Django)
 DATABASE_URL=postgresql://user:pass@localhost/commerce
 
-# Redis (shared queue with Router)
-REDIS_URL=redis://localhost:6379
-
 # Tenant
-TENANT_ID=default
+TENANT_ID=myproject
 ```
-
----
-
-### Enterprise & Production
-
-For teams needing advanced security, multi-tenancy, or enterprise integrations, we offer production deployment options at [contextworker.dev](https://contextworker.dev).
