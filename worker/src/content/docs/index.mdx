@@ -26,8 +26,8 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
   <Card title="Harvester Jobs" icon="database">
     Automated data harvesting from 15+ suppliers. Fetch, transform, and sync inventory data on schedule.
   </Card>
-  <Card title="Agent Integration" icon="puzzle">
-    Seamless integration with Router agents. Run Gardener enrichment, Lexicon content generation, and Matcher deduplication.
+  <Card title="Router Agent Integration" icon="puzzle">
+    Invoke ContextRouter agents on schedule. Trigger Gardener enrichment, Lexicon content generation, and Matcher deduplication via API/gRPC.
   </Card>
   <Card title="ContextUnit Security" icon="approve-check">
     Full ContextUnit protocol support. All job executions are traced and audited with capability-based access control.
@@ -39,7 +39,7 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 ContextWorker is the **automation backbone** that powers background processing across the ContextUnity ecosystem:
 
 - **Reliable Job Execution** — Temporal workflows ensure jobs complete even through failures
-- **Agent Orchestration** — Seamless integration with Router agents for AI-powered tasks
+- **Agent Invocation** — Trigger ContextRouter agents (Gardener, Lexicon, Matcher) on schedule
 - **Harvester Pipeline** — Automated data collection and transformation from multiple suppliers
 - **Scheduled Jobs** — Cron-style scheduling for recurring tasks
 
@@ -63,13 +63,15 @@ Automated inventory aggregation from 15+ outdoor gear suppliers:
 - **Scheduler** — Daily automated runs with configurable timing
 - **Notifications** — Email alerts for failures and stale data
 
-### Agent Integration
+### Router Agent Invocation
 
-Direct integration with ContextRouter agents:
+Worker triggers ContextRouter agents via API/gRPC:
 
-- **Gardener** — Product taxonomy classification
-- **Lexicon** — AI content generation via Perplexity
-- **Matcher** — Product deduplication and matching
+- **Gardener** — Product taxonomy classification (lives in Router)
+- **Lexicon** — AI content generation via Perplexity (lives in Router)
+- **Matcher** — Product deduplication and matching (lives in Router)
+
+> Worker is the **scheduler**, Router is the **brain** with AI logic.
 
 ## Open Source First
 

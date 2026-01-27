@@ -1,93 +1,88 @@
 ---
 title: Gardener Agent
-description: AI-powered product taxonomy classification
+description: Running the Gardener taxonomy classification agent
 ---
 
 # Gardener Agent
 
-Gardener is the AI agent responsible for product taxonomy classification in the ContextUnity ecosystem. It runs as a ContextWorker job to enrich products with proper categories, attributes, and metadata.
-
-## Overview
-
-The Gardener agent:
-- Classifies products into taxonomy categories using LLM reasoning
-- Extracts structured attributes (brand, model, size, color)
-- Generates SEO-friendly titles and descriptions
-- Validates classifications against the taxonomy tree
+Gardener is an AI agent that lives in **ContextRouter** and performs product taxonomy classification. ContextWorker triggers Gardener runs on schedule or on-demand.
 
 ## Architecture
+
+> **Important**: Gardener is a **ContextRouter** agent (LangGraph graph).
+> ContextWorker only invokes it — the actual AI logic lives in Router.
 
 ```
 ContextWorker                    ContextRouter                 ContextBrain
      │                               │                              │
-     │ trigger enrichment            │                              │
-     ▼                               │                              │
-┌──────────────┐                    │                              │
-│  Gardener    │─────invoke───────►│◄── LangGraph Agent           │
-│  Workflow    │                    │                              │
-└──────────────┘                    │                              │
-     │                               │    search taxonomy           │
-     │                               │─────────────────────────────►│
-     │                               │◄────taxonomy nodes───────────│
-     │                               │                              │
-     │◄──────classified product──────│                              │
-     │                               │                              │
-     ▼                               │                              │
-┌──────────────┐                    │                              │
-│  Commerce DB │◄───update product──│                              │
-└──────────────┘                    │                              │
+     │ trigger (HTTP/gRPC)           │                              │
+     ▼                               ▼                              │
+┌──────────────┐              ┌──────────────┐                     │
+│  Harvester   │──invoke────►│  Gardener    │                     │
+│  Workflow    │              │  Graph       │                     │
+└──────────────┘              │  (LangGraph) │                     │
+                              └──────────────┘                     │
+                                    │                              │
+                                    │ search taxonomy              │
+                                    │─────────────────────────────►│
+                                    │◄────taxonomy nodes───────────│
+                                    │                              │
+                                    ▼                              │
+                              ┌──────────────┐                     │
+                              │  Classified  │──────update───────►│
+                              │  Product     │                     │
+                              └──────────────┘                     │
 ```
 
-## Configuration
+## Where Does Gardener Live?
 
-### Environment Variables
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| **Gardener Graph** | `contextrouter/cortex/graphs/gardener.py` | LangGraph workflow with AI reasoning |
+| **Gardener Activity** | `contextworker/activities.py` | Temporal activity that calls Router |
+| **Gardener Workflow** | `contextworker/workflows.py` | Temporal workflow that triggers enrichment |
 
-```bash
-# Router connection
-ROUTER_URL=http://localhost:8000
-ROUTER_API_KEY=your-api-key
-
-# Processing settings
-GARDENER_BATCH_SIZE=10
-GARDENER_MAX_RETRIES=3
-GARDENER_TIMEOUT_SECONDS=60
-```
-
-### Workflow Settings
-
-In `config.py`:
-
-```python
-GARDENER_CONFIG = {
-    "batch_size": 10,
-    "max_concurrent": 5,
-    "taxonomy_search_limit": 10,
-    "confidence_threshold": 0.7,
-    "retry_on_low_confidence": True,
-}
-```
-
-## Running Gardener
+## Running Gardener via Worker
 
 ### Manual Execution
 
 ```bash
-# Process pending products
+# Trigger Gardener enrichment for pending products
 mise run gardener
 
 # With custom batch size
 python -m contextworker gardener --batch-size 20
 
-# Process specific dealer
+# Process specific dealer only
 python -m contextworker gardener --dealer vysota
+```
+
+### How Worker Invokes Gardener
+
+Worker calls the Router's Gardener endpoint:
+
+```python
+# contextworker/activities.py
+
+@activity.defn
+async def gardener_activity(batch_size: int = 10) -> dict:
+    """Call Router's Gardener agent for product enrichment."""
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{settings.ROUTER_URL}/api/v1/agents/gardener/run",
+            json={"batch_size": batch_size},
+            headers={"Authorization": f"Bearer {settings.ROUTER_API_KEY}"},
+        )
+        return response.json()
 ```
 
 ### Scheduled Execution
 
-Gardener runs automatically after harvester jobs:
+Gardener typically runs after harvester jobs:
 
 ```python
-# In workflows.py
+# contextworker/workflows.py
+
 @workflow.defn
 class HarvestWorkflow:
     @workflow.run
@@ -99,17 +94,16 @@ class HarvestWorkflow:
             start_to_close_timeout=timedelta(minutes=30)
         )
         
-        # 2. Run Gardener enrichment
+        # 2. Trigger Gardener on Router
         await workflow.execute_activity(
             gardener_activity,
-            supplier,
             start_to_close_timeout=timedelta(hours=1)
         )
 ```
 
-## Gardener Graph (Router)
+## Gardener Graph (in Router)
 
-The actual AI logic lives in ContextRouter as a LangGraph:
+The actual AI logic is a LangGraph workflow in ContextRouter:
 
 ```python
 # contextrouter/cortex/graphs/gardener.py
@@ -129,68 +123,70 @@ def build_gardener_graph():
     workflow.add_node("extract_attributes", extract_attributes_node)
     
     workflow.set_entry_point("search_taxonomy")
-    workflow.add_edge("search_taxonomy", "classify")
-    workflow.add_edge("classify", "validate")
-    workflow.add_conditional_edges(
-        "validate",
-        should_retry,
-        {"retry": "search_taxonomy", "continue": "extract_attributes"}
-    )
-    workflow.add_edge("extract_attributes", END)
+    # ... edges and conditions
     
     return workflow.compile()
 ```
 
-## Enrichment Status
+For full Gardener documentation, see **[ContextRouter Agents](/router/agents/gardener/)**.
 
-Products track their enrichment status:
+## Configuration
 
-| Status | Description |
-|--------|-------------|
-| `PENDING` | Not yet processed |
-| `PROCESSING` | Currently being enriched |
-| `ENRICHED` | Successfully classified |
-| `FAILED` | Classification failed |
-| `SKIPPED` | Manually excluded |
+### Worker Side
+
+```bash
+# .env
+ROUTER_URL=http://localhost:8000
+ROUTER_API_KEY=your-api-key
+GARDENER_BATCH_SIZE=10
+```
+
+### Router Side
+
+Gardener configuration is in ContextRouter:
+- Model selection (Claude, GPT-4, etc.)
+- Taxonomy search parameters
+- Confidence thresholds
+- Retry logic
+
+See [Router Gardener Config](/router/reference/configuration/#gardener).
 
 ## Monitoring
 
-### Logs
+### From Worker
 
 ```bash
-# View Gardener logs
+# View workflow execution
+temporal workflow list --query "WorkflowType='GardenerWorkflow'"
+
+# View logs
 journalctl -u contextworker -f | grep gardener
 ```
 
-### Metrics
+### From Router
 
-Gardener exposes metrics via ContextWorker:
-
-- `gardener_products_processed` - Total products processed
-- `gardener_classification_success` - Successful classifications
-- `gardener_classification_failed` - Failed classifications
-- `gardener_avg_confidence` - Average confidence score
+```bash
+# Router logs show actual classification
+journalctl -u contextrouter -f | grep gardener
+```
 
 ## Troubleshooting
 
-### Low Confidence Classifications
+### Worker Can't Reach Router
 
-If Gardener consistently produces low confidence:
+1. Check `ROUTER_URL` is correct
+2. Verify Router is running
+3. Check API key is valid
 
-1. Check taxonomy tree completeness
-2. Verify product names have sufficient context
-3. Review and expand taxonomy embeddings
+### Classifications Are Wrong
 
-### Timeouts
-
-For timeout issues:
-
-1. Reduce batch size
-2. Increase timeout in workflow
-3. Check Router/Brain service health
+This is a **Router** issue, not Worker:
+1. Check Router logs for LLM responses
+2. Review taxonomy tree in ContextBrain
+3. Adjust Router's Gardener config
 
 ## Next Steps
 
+- [ContextRouter Gardener Agent](/router/agents/gardener/) - Full agent documentation
 - [Harvester Guide](/guides/harvester/) - Configure data sources
 - [Workflows Guide](/guides/workflows/) - Custom workflow creation
-- [Router Agents](/reference/agents/) - Agent configuration
