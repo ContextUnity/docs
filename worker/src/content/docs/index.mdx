@@ -26,8 +26,8 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
   <Card title="Harvester Jobs" icon="database">
     Automated data harvesting from 15+ suppliers. Fetch, transform, and sync inventory data on schedule.
   </Card>
-  <Card title="Router Agent Integration" icon="puzzle">
-    Invoke ContextRouter agents on schedule. Trigger Gardener enrichment, Lexicon content generation, and Matcher deduplication via API/gRPC.
+  <Card title="Router Integration" icon="puzzle">
+    Import ContextRouter as a Python package. Invoke Commerce graphs directly - Gardener, Lexicon, Matcher subgraphs.
   </Card>
   <Card title="ContextUnit Security" icon="approve-check">
     Full ContextUnit protocol support. All job executions are traced and audited with capability-based access control.
@@ -39,9 +39,9 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 ContextWorker is the **automation backbone** that powers background processing across the ContextUnity ecosystem:
 
 - **Reliable Job Execution** — Temporal workflows ensure jobs complete even through failures
-- **Agent Invocation** — Trigger ContextRouter agents (Gardener, Lexicon, Matcher) on schedule
+- **Direct Router Integration** — Import `contextrouter` package, call graphs via Python
 - **Harvester Pipeline** — Automated data collection and transformation from multiple suppliers
-- **Scheduled Jobs** — Cron-style scheduling for recurring tasks
+- **Shared Queue** — Redis queue shared between Worker and Router graphs
 
 ## Quick Links
 
@@ -49,7 +49,7 @@ ContextWorker is the **automation backbone** that powers background processing a
   <LinkCard title="Installation" href="/getting-started/installation/" description="Get ContextWorker running with pip or uv." />
   <LinkCard title="Harvester" href="/guides/harvester/" description="Configure data harvesting from suppliers." />
   <LinkCard title="Workflows" href="/guides/workflows/" description="Build custom Temporal workflows." />
-  <LinkCard title="Gardener Agent" href="/guides/gardener/" description="Product taxonomy classification agent." />
+  <LinkCard title="Gardener" href="/guides/gardener/" description="Product taxonomy classification." />
 </CardGrid>
 
 ## Core Components
@@ -63,15 +63,21 @@ Automated inventory aggregation from 15+ outdoor gear suppliers:
 - **Scheduler** — Daily automated runs with configurable timing
 - **Notifications** — Email alerts for failures and stale data
 
-### Router Agent Invocation
+### Router Integration
 
-Worker triggers ContextRouter agents via API/gRPC:
+Worker imports ContextRouter as a **Python package**:
 
-- **Gardener** — Product taxonomy classification (lives in Router)
-- **Lexicon** — AI content generation via Perplexity (lives in Router)
-- **Matcher** — Product deduplication and matching (lives in Router)
+```python
+from contextrouter.cortex.queue import get_enrichment_queue
+from contextrouter.cortex.graphs.commerce import build_commerce_graph
+```
 
-> Worker is the **scheduler**, Router is the **brain** with AI logic.
+> Router is **not** an API service. It's a library that Worker imports directly.
+
+Graphs run in Worker process or as separate consumers:
+- **Gardener** — Product taxonomy classification (subgraph of Commerce)
+- **Lexicon** — AI content generation (subgraph of Commerce)
+- **Matcher** — Product deduplication (subgraph of Commerce)
 
 ## Open Source First
 
@@ -93,11 +99,14 @@ ContextWorker uses environment variables for configuration:
 TEMPORAL_HOST=localhost:7233
 TEMPORAL_NAMESPACE=contextworker
 
-# Database
-DATABASE_URL=postgresql://user:pass@localhost/harvester
+# Database (shared with Commerce)
+DATABASE_URL=postgresql://user:pass@localhost/commerce
 
-# Router Integration
-ROUTER_URL=http://localhost:8000
+# Redis (shared queue with Router)
+REDIS_URL=redis://localhost:6379
+
+# Tenant
+TENANT_ID=default
 ```
 
 ---

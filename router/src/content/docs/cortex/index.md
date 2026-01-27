@@ -131,11 +131,32 @@ This graph-based approach provides:
 - **State immutability** — Easy debugging and reproducibility
 - **Step reusability** — Business logic can be shared across workflows
 
+## Graph Dispatcher
+
+ContextRouter uses a central graph dispatcher (`dispatcher.py`) to select which graph to run based on configuration or explicit request.
+
+```python
+from contextrouter.cortex.graphs import compile_graph
+
+# Use config-based selection (router.graph setting)
+graph = compile_graph()
+
+# Or explicit graph name
+commerce_graph = compile_graph("commerce")
+rag_graph = compile_graph("rag_retrieval")
+```
+
+**Selection priority:**
+1. `router.override_path` — custom Python path (power-user)
+2. `graph_registry` — graphs registered via `@register_graph`
+3. Built-in: `rag_retrieval`, `commerce`
+
 ## Built-in Graphs
 
-ContextRouter ships with pre-built graphs for common use cases:
+ContextRouter ships with pre-built graphs:
 
 ### rag_retrieval
+
 The standard RAG workflow. Handles intent detection, retrieval from multiple sources, reranking, generation, and follow-up suggestions.
 
 ```python
@@ -144,13 +165,52 @@ from contextrouter.cortex.graphs import rag_retrieval
 graph = rag_retrieval.compile_graph()
 ```
 
-### rag_ingestion
-Document processing pipeline. Handles preprocessing, taxonomy building, graph generation, and deployment to search indexes.
+### commerce
+
+Commerce domain graph with subgraph architecture for e-commerce AI operations.
 
 ```python
-from contextrouter.cortex.graphs import rag_ingestion
+from contextrouter.cortex.graphs.commerce import build_commerce_graph
 
-graph = rag_ingestion.compile_graph()
+# Programmatic access with explicit intent
+graph = build_commerce_graph()
+result = await graph.ainvoke({
+    "intent": "enrich",           # gardener subgraph
+    "tenant_id": "default",
+    "batch_size": 10,
+})
+
+# Or with LLM intent detection (Chat mode)
+from contextrouter.cortex.graphs.commerce import invoke_chat
+result = await invoke_chat("Classify all products from Vysota")
+```
+
+#### Commerce Subgraphs
+
+| Subgraph | Intent | Purpose |
+|----------|--------|---------|
+| `gardener` | `enrich` | Taxonomy classification, NER, Knowledge Graph |
+| `lexicon` | `generate_content` | AI content generation via Perplexity |
+| `matcher` | `match_products` | Product deduplication and linking |
+| `chat` | (wrapper) | LLM intent detection for natural language |
+
+#### Commerce Structure
+
+```
+commerce/
+├── graph.py          # CommerceGraph (main entry)
+├── state.py          # CommerceState
+├── chat/             # LLM intent detection
+│   ├── graph.py      # create_chat_subgraph()
+│   └── nodes.py      # detect_intent, route nodes
+├── gardener/         # Taxonomy enrichment
+│   ├── graph.py      # create_gardener_subgraph()
+│   └── nodes.py      # classify, extract_ner, update_kg
+├── lexicon/          # Content generation
+│   └── graph.py      # create_lexicon_subgraph()
+└── matcher/          # Product matching
+    ├── graph.py      # create_matcher_subgraph()
+    └── nodes.py      # MatchingNode
 ```
 
 ## Using a Graph Directly

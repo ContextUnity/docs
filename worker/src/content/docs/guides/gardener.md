@@ -5,42 +5,105 @@ description: Running the Gardener taxonomy classification agent
 
 # Gardener Agent
 
-Gardener is an AI agent that lives in **ContextRouter** and performs product taxonomy classification. ContextWorker triggers Gardener runs on schedule or on-demand.
+Gardener is an AI agent that lives in **ContextRouter** and performs product taxonomy classification. ContextWorker imports Router as a Python package and invokes the graph directly.
 
 ## Architecture
 
-> **Important**: Gardener is a **ContextRouter** agent (LangGraph graph).
-> ContextWorker only invokes it — the actual AI logic lives in Router.
+> **Important**: Router is a **Python package**, not an API service.
+> Worker imports `contextrouter` and calls graphs directly via Python.
 
 ```
-ContextWorker                    ContextRouter                 ContextBrain
-     │                               │                              │
-     │ trigger (HTTP/gRPC)           │                              │
-     ▼                               ▼                              │
-┌──────────────┐              ┌──────────────┐                     │
-│  Harvester   │──invoke────►│  Gardener    │                     │
-│  Workflow    │              │  Graph       │                     │
-└──────────────┘              │  (LangGraph) │                     │
-                              └──────────────┘                     │
-                                    │                              │
-                                    │ search taxonomy              │
-                                    │─────────────────────────────►│
-                                    │◄────taxonomy nodes───────────│
-                                    │                              │
-                                    ▼                              │
-                              ┌──────────────┐                     │
-                              │  Classified  │──────update───────►│
-                              │  Product     │                     │
-                              └──────────────┘                     │
+ContextWorker                         ContextRouter (package)
+     │                                      │
+     │ from contextrouter.cortex            │
+     │ .graphs.commerce import graph        │
+     ▼                                      ▼
+┌──────────────────┐               ┌──────────────────┐
+│ HarvesterScheduler│──import────►│ CommerceGraph    │
+│                  │               │   └── gardener   │  (subgraph)
+│ queue.enqueue()  │               │   └── lexicon    │  (subgraph)
+└──────────────────┘               │   └── matcher    │  (subgraph)
+     │                             └──────────────────┘
+     │ enqueue to Redis                    │
+     ▼                                     │
+┌──────────────────┐                      │
+│   Redis Queue    │◄─────consumes────────│
+│   (shared)       │                      │
+└──────────────────┘                      │
+                                          │
+                                          ▼
+                                    ContextBrain
+                                    (taxonomy, KG)
 ```
 
-## Where Does Gardener Live?
+## Graph Structure
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| **Gardener Graph** | `contextrouter/cortex/graphs/gardener.py` | LangGraph workflow with AI reasoning |
-| **Gardener Activity** | `contextworker/activities.py` | Temporal activity that calls Router |
-| **Gardener Workflow** | `contextworker/workflows.py` | Temporal workflow that triggers enrichment |
+Gardener is a **subgraph** of the Commerce graph:
+
+```
+cortex/graphs/
+└── commerce/
+    ├── graph.py              # Main CommerceGraph (entry point)
+    ├── state.py              # CommerceState
+    │
+    ├── gardener/
+    │   ├── graph.py          # create_gardener_subgraph()
+    │   ├── nodes.py          # classify_node, extract_ner_node
+    │   └── state.py          # GardenerState
+    │
+    ├── lexicon/
+    │   └── graph.py          # create_lexicon_subgraph()
+    │
+    └── matcher/
+        └── graph.py          # create_matcher_subgraph()
+```
+
+## How Worker Uses Router
+
+Worker imports Router as a **Python package**:
+
+```python
+# contextworker/harvester/scheduler.py
+
+from contextrouter.cortex.queue import get_enrichment_queue
+
+class HarvesterScheduler:
+    async def _get_queue(self):
+        """Get Router's enrichment queue - direct Python import."""
+        self._queue = get_enrichment_queue(self.config.redis_url)
+        return self._queue
+    
+    async def _enqueue_pending_products(self):
+        """Enqueue products to shared Redis queue."""
+        product_ids = await self._get_pending_products()
+        
+        queue = await self._get_queue()
+        await queue.enqueue(
+            product_ids=product_ids,
+            tenant_id=cfg.tenant_id,
+            priority="normal",
+            source="scheduler",
+        )
+```
+
+### Gardener Graph Consumer
+
+The Gardener graph runs as a separate process (or in Worker) and consumes from the queue:
+
+```python
+# Can be run in Worker or as standalone process
+from contextrouter.cortex.graphs.commerce import build_commerce_graph
+
+async def run_gardener_consumer():
+    graph = build_commerce_graph()
+    
+    # Invoke with "enrich" intent routes to gardener subgraph
+    result = await graph.ainvoke({
+        "intent": "enrich",
+        "batch_size": 10,
+        "tenant_id": "default",
+    })
+```
 
 ## Running Gardener via Worker
 
@@ -57,136 +120,113 @@ python -m contextworker gardener --batch-size 20
 python -m contextworker gardener --dealer vysota
 ```
 
-### How Worker Invokes Gardener
-
-Worker calls the Router's Gardener endpoint:
-
-```python
-# contextworker/activities.py
-
-@activity.defn
-async def gardener_activity(batch_size: int = 10) -> dict:
-    """Call Router's Gardener agent for product enrichment."""
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{settings.ROUTER_URL}/api/v1/agents/gardener/run",
-            json={"batch_size": batch_size},
-            headers={"Authorization": f"Bearer {settings.ROUTER_API_KEY}"},
-        )
-        return response.json()
-```
-
 ### Scheduled Execution
 
-Gardener typically runs after harvester jobs:
+Worker scheduler enqueues products periodically:
 
 ```python
-# contextworker/workflows.py
+# contextworker/harvester/scheduler.py
 
-@workflow.defn
-class HarvestWorkflow:
-    @workflow.run
-    async def run(self, supplier: str):
-        # 1. Fetch and transform data
-        await workflow.execute_activity(
-            harvest_activity,
-            supplier,
-            start_to_close_timeout=timedelta(minutes=30)
-        )
-        
-        # 2. Trigger Gardener on Router
-        await workflow.execute_activity(
-            gardener_activity,
-            start_to_close_timeout=timedelta(hours=1)
-        )
+self.scheduler.add_job(
+    self._enqueue_pending_products,
+    trigger=IntervalTrigger(seconds=gardener_cfg.poll_interval),
+    id="harvester_enqueue",
+)
 ```
 
-## Gardener Graph (in Router)
+## Gardener Subgraph
 
-The actual AI logic is a LangGraph workflow in ContextRouter:
+The Gardener subgraph in Router:
 
 ```python
-# contextrouter/cortex/graphs/gardener.py
+# contextrouter/cortex/graphs/commerce/gardener/graph.py
 
-class GardenerState(TypedDict):
-    product: Product
-    taxonomy_candidates: list[TaxonomyNode]
-    classification: Classification | None
-    confidence: float
+from langgraph.graph import StateGraph, END
+from .nodes import (
+    fetch_pending_node,
+    classify_taxonomy_node,
+    extract_ner_node,
+    update_kg_node,
+    write_results_node,
+)
+from .state import GardenerState
 
-def build_gardener_graph():
+def create_gardener_subgraph():
+    """Create Gardener subgraph for taxonomy classification."""
     workflow = StateGraph(GardenerState)
     
-    workflow.add_node("search_taxonomy", search_taxonomy_node)
-    workflow.add_node("classify", classify_product_node)
-    workflow.add_node("validate", validate_classification_node)
-    workflow.add_node("extract_attributes", extract_attributes_node)
+    workflow.add_node("fetch", fetch_pending_node)
+    workflow.add_node("classify", classify_taxonomy_node)
+    workflow.add_node("extract_ner", extract_ner_node)
+    workflow.add_node("update_kg", update_kg_node)
+    workflow.add_node("write", write_results_node)
     
-    workflow.set_entry_point("search_taxonomy")
-    # ... edges and conditions
+    workflow.set_entry_point("fetch")
+    workflow.add_edge("fetch", "classify")
+    workflow.add_edge("classify", "extract_ner")
+    workflow.add_edge("extract_ner", "update_kg")
+    workflow.add_edge("update_kg", "write")
+    workflow.add_edge("write", END)
     
     return workflow.compile()
 ```
-
-For full Gardener documentation, see **[ContextRouter Agents](/router/agents/gardener/)**.
 
 ## Configuration
 
 ### Worker Side
 
 ```bash
-# .env
-ROUTER_URL=http://localhost:8000
-ROUTER_API_KEY=your-api-key
+# .env (Worker)
+DATABASE_URL=postgresql://user:pass@localhost/commerce
+REDIS_URL=redis://localhost:6379
+TENANT_ID=default
 GARDENER_BATCH_SIZE=10
+GARDENER_POLL_INTERVAL=60
 ```
 
 ### Router Side
 
-Gardener configuration is in ContextRouter:
+Gardener settings are in Router's config:
 - Model selection (Claude, GPT-4, etc.)
 - Taxonomy search parameters
 - Confidence thresholds
-- Retry logic
-
-See [Router Gardener Config](/router/reference/configuration/#gardener).
+- LLM prompts directory
 
 ## Monitoring
 
-### From Worker
+### Worker Logs
 
 ```bash
-# View workflow execution
-temporal workflow list --query "WorkflowType='GardenerWorkflow'"
+# View scheduler logs
+journalctl -u contextworker -f | grep harvester
 
-# View logs
-journalctl -u contextworker -f | grep gardener
+# Queue stats
+redis-cli LLEN enrichment:queue:default
 ```
 
-### From Router
+### Graph Execution
 
 ```bash
-# Router logs show actual classification
-journalctl -u contextrouter -f | grep gardener
+# If running Gardener as separate process
+journalctl -u gardener-consumer -f
 ```
 
 ## Troubleshooting
 
-### Worker Can't Reach Router
+### Queue Not Processing
 
-1. Check `ROUTER_URL` is correct
-2. Verify Router is running
-3. Check API key is valid
+1. Check Redis is running
+2. Verify `REDIS_URL` matches in Worker and graph consumer
+3. Check graph consumer process is running
 
 ### Classifications Are Wrong
 
-This is a **Router** issue, not Worker:
-1. Check Router logs for LLM responses
+This is a Router issue:
+1. Check LLM responses in graph logs
 2. Review taxonomy tree in ContextBrain
-3. Adjust Router's Gardener config
+3. Adjust prompts in Router config
 
 ## Next Steps
 
-- [ContextRouter Gardener Agent](/router/agents/gardener/) - Full agent documentation
 - [Harvester Guide](/guides/harvester/) - Configure data sources
-- [Workflows Guide](/guides/workflows/) - Custom workflow creation
+- [Workflows Guide](/guides/workflows/) - Custom Temporal workflows

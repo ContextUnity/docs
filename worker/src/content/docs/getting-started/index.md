@@ -10,9 +10,9 @@ ContextWorker is the job runner and automation layer for the ContextUnity ecosys
 ## Prerequisites
 
 - Python 3.12+
-- PostgreSQL database
-- Temporal server (local or cloud)
-- Optional: Redis for caching
+- PostgreSQL database (shared with Commerce)
+- Redis (shared queue with Router)
+- Optional: Temporal server (for advanced workflows)
 
 ## Installation
 
@@ -23,7 +23,7 @@ ContextWorker is the job runner and automation layer for the ContextUnity ecosys
 git clone https://github.com/ContextUnity/contextworker.git
 cd contextworker
 
-# Install dependencies
+# Install dependencies (includes contextrouter as package)
 uv sync
 
 # Copy environment template
@@ -36,37 +36,90 @@ cp .env.example .env
 pip install contextworker
 ```
 
+This automatically installs `contextrouter` as a dependency.
+
 ## Configuration
 
 Edit `.env` with your settings:
 
 ```bash
-# Database
-DATABASE_URL=postgresql://user:pass@localhost/harvester
+# Database (shared with Commerce)
+DATABASE_URL=postgresql://user:pass@localhost/commerce
 
-# Temporal
+# Redis (shared queue with Router)
+REDIS_URL=redis://localhost:6379
+
+# Tenant
+TENANT_ID=default
+
+# Gardener settings
+GARDENER_BATCH_SIZE=10
+GARDENER_POLL_INTERVAL=60
+
+# Prompts directory (commerce-specific)
+PROMPTS_DIR=/path/to/commerce/prompts
+
+# Optional: Temporal (for advanced workflows)
 TEMPORAL_HOST=localhost:7233
 TEMPORAL_NAMESPACE=contextworker
+```
 
-# Router Integration
-ROUTER_URL=http://localhost:8000
-ROUTER_API_KEY=your-api-key
+## Understanding the Architecture
 
-# Notifications (optional)
-MAILGUN_API_KEY=your-key
-MAILGUN_DOMAIN=your-domain
+ContextWorker imports ContextRouter as a **Python package**:
+
+```python
+# Worker imports Router directly
+from contextrouter.cortex.graphs.commerce import build_commerce_graph
+from contextrouter.cortex.queue import get_enrichment_queue
+```
+
+There is **no HTTP API** between Worker and Router. They share:
+- **Redis queue** for product IDs to process
+- **PostgreSQL database** for product data
+
+```
+┌────────────────────────────────────────────────────┐
+│                    ContextWorker                    │
+│                                                    │
+│   from contextrouter.cortex.graphs.commerce        │
+│   import build_commerce_graph                       │
+│                                                    │
+│   graph = build_commerce_graph()                    │
+│   result = await graph.ainvoke({...})              │
+│                                                    │
+└────────────────────────────────────────────────────┘
+           │                    │
+           │ enqueue           │ ainvoke
+           ▼                    ▼
+     ┌──────────┐        ┌──────────────────┐
+     │  Redis   │        │ CommerceGraph    │
+     │  Queue   │        │  └── gardener    │
+     └──────────┘        │  └── lexicon     │
+                         │  └── matcher     │
+                         └──────────────────┘
 ```
 
 ## Running the Worker
 
-### Start Temporal Worker
+### Start Harvester Scheduler
 
 ```bash
-# Start the worker process
-python -m contextworker worker
+# Start the scheduler (enqueues products periodically)
+python -m contextworker scheduler
 
 # Or using mise
-mise run worker
+mise run scheduler
+```
+
+### Run Gardener Manually
+
+```bash
+# Process pending products
+mise run gardener
+
+# With custom batch size
+python -m contextworker gardener --batch-size 20
 ```
 
 ### Run Harvester Jobs
@@ -77,19 +130,6 @@ mise run harvest_all
 
 # Run specific supplier
 mise run harvest_vysota
-
-# Trigger via CLI
-python -m contextworker harvest --supplier vysota
-```
-
-### Run Gardener Enrichment
-
-```bash
-# Process pending products
-mise run gardener
-
-# Or via CLI
-python -m contextworker gardener --batch-size 10
 ```
 
 ## Directory Structure
@@ -98,17 +138,17 @@ python -m contextworker gardener --batch-size 10
 contextworker/
 ├── src/contextworker/
 │   ├── __init__.py
-│   ├── __main__.py          # CLI entry point
-│   ├── worker.py             # Temporal worker
+│   ├── __main__.py           # CLI entry point
+│   ├── config.py             # Configuration
+│   ├── worker.py             # Temporal worker (optional)
 │   ├── workflows.py          # Workflow definitions
 │   ├── activities.py         # Activity implementations
-│   ├── config.py             # Configuration
-│   ├── agents/               # Agent integrations
-│   │   ├── harvester.py
-│   │   └── lexicon.py
+│   ├── agents/               # Agent wrappers
+│   │   ├── harvester.py      # Harvester agent
+│   │   └── lexicon.py        # Lexicon agent
 │   └── harvester/            # Harvester module
 │       ├── orchestrator.py
-│       ├── scheduler.py
+│       ├── scheduler.py      # Enqueues to Redis
 │       └── suppliers/
 ├── .env.example
 ├── .mise.toml                # Task runner
@@ -118,5 +158,5 @@ contextworker/
 ## Next Steps
 
 - [Configure Harvester](/guides/harvester/) - Set up data collection
-- [Build Workflows](/guides/workflows/) - Create custom Temporal workflows
-- [Gardener Agent](/guides/gardener/) - Product enrichment with AI
+- [Gardener Agent](/guides/gardener/) - Product enrichment
+- [Build Workflows](/guides/workflows/) - Custom Temporal workflows
