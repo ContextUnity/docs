@@ -79,7 +79,7 @@ organization = "org-..."  # Optional
 llm = model_registry.create_llm("openai/gpt-4o", config=config)
 
 # GPT-4o Mini (cost-effective)
-llm = model_registry.create_llm("openai/gpt-4o-mini", config=config)
+llm = model_registry.create_llm("openai/gpt-5-mini", config=config)
 
 # o1 (reasoning)
 llm = model_registry.create_llm("openai/o1", config=config)
@@ -290,13 +290,13 @@ asr = model_registry.create_llm(
 
 Use reliable models with good instruction following:
 - `vertex/gemini-2.0-flash` — Best balance of speed/quality
-- `openai/gpt-4o-mini` — Reliable, good value
+- `openai/gpt-5-mini` — Reliable, good value
 
 ### For Structured Output (JSON)
 
 Some models are better at following JSON schema requirements:
 - ✅ `vertex/gemini-2.0-flash`
-- ✅ `openai/gpt-4o-mini`
+- ✅ `openai/gpt-5-mini`
 - ⚠️ Local models may struggle with complex JSON
 
 ### For Cost Optimization

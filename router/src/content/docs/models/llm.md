@@ -79,7 +79,7 @@ organization = "org-..."  # Optional
 llm = model_registry.create_llm("openai/gpt-4o", config=config)
 
 # GPT-4o Mini (cost-effective)
-llm = model_registry.create_llm("openai/gpt-4o-mini", config=config)
+llm = model_registry.create_llm("openai/gpt-5-mini", config=config)
 
 # o1 (reasoning)
 llm = model_registry.create_llm("openai/o1", config=config)
@@ -90,6 +90,73 @@ llm = model_registry.create_llm("openai/o1", config=config)
 - ✅ Function calling
 - ✅ JSON mode
 - ✅ Whisper for audio transcription
+- ✅ Batch API (50% cost savings)
+
+### Batch API (Async Processing)
+
+For large-scale operations where you don't need immediate responses, use the Batch API for **50% cost savings**:
+
+```python
+from contextrouter.modules.models.llm import OpenAIBatchClient, BatchRequest
+
+client = OpenAIBatchClient(config)
+
+# Create batch requests
+requests = [
+    BatchRequest(
+        custom_id="product-1",
+        messages=[{"role": "user", "content": "Categorize this product: ..."}],
+        model="gpt-4o-mini",
+    ),
+    BatchRequest(
+        custom_id="product-2",
+        messages=[{"role": "user", "content": "Categorize this product: ..."}],
+    ),
+    # ... up to 50,000 requests
+]
+
+# Submit batch (async, completes within 24 hours)
+job = await client.create_batch(requests, description="Product enrichment")
+
+# Check status
+job = await client.get_batch(job.id)
+print(f"Status: {job.status}")  # validating, in_progress, completed
+
+# Wait for completion (or poll manually)
+completed = await client.wait_for_completion(job.id)
+
+# Get results
+results = await client.get_batch_results(completed)
+for r in results:
+    print(f"{r.custom_id}: {r.content}")
+```
+
+#### Simple Helper Function
+
+```python
+from contextrouter.modules.models.llm import run_batch_completions
+
+results = await run_batch_completions(
+    config,
+    [
+        {"id": "p1", "messages": [{"role": "user", "content": "..."}]},
+        {"id": "p2", "messages": [{"role": "user", "content": "..."}]},
+    ],
+    model="gpt-4o-mini",
+    wait=True,  # Wait for completion
+)
+```
+
+#### Best Use Cases
+- Commerce product enrichment (thousands of products)
+- Bulk content generation
+- Large-scale data labeling
+- Document summarization
+
+#### Limitations
+- Completion within **24 hours** (often faster during low-load)
+- Not for real-time/interactive use
+- Max 50,000 requests per batch
 
 ---
 
@@ -153,6 +220,41 @@ llm = model_registry.create_llm("groq/whisper-large-v3", config=config)
 - ✅ Sub-second latency for most queries
 - ✅ Open-source models
 - ✅ Whisper ASR integration
+
+---
+
+## Perplexity
+
+**Best for**: Search-augmented generation, real-time web information
+
+Perplexity provides LLM with built-in web search capabilities (Sonar models).
+
+### Setup
+
+```bash
+export PERPLEXITY_API_KEY=pplx-...
+```
+
+### Available Models
+
+```python
+# Sonar (default, search-enabled)
+llm = model_registry.create_llm("perplexity/sonar", config=config)
+
+# With search recency filter
+llm = model_registry.create_llm(
+    "perplexity/sonar",
+    config=config,
+    search_recency_filter="day",  # day, week, month
+    return_citations=True,
+)
+```
+
+### Features
+- ✅ Built-in web search (no separate search API needed)
+- ✅ Real-time information retrieval
+- ✅ Citation tracking
+- ✅ Recency filtering
 
 ---
 
@@ -290,13 +392,13 @@ asr = model_registry.create_llm(
 
 Use reliable models with good instruction following:
 - `vertex/gemini-2.0-flash` — Best balance of speed/quality
-- `openai/gpt-4o-mini` — Reliable, good value
+- `openai/gpt-5-mini` — Reliable, good value
 
 ### For Structured Output (JSON)
 
 Some models are better at following JSON schema requirements:
 - ✅ `vertex/gemini-2.0-flash`
-- ✅ `openai/gpt-4o-mini`
+- ✅ `openai/gpt-5-mini`
 - ⚠️ Local models may struggle with complex JSON
 
 ### For Cost Optimization

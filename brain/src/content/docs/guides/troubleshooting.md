@@ -416,7 +416,7 @@ This guide covers common problems you might encounter when using ContextRouter, 
    # Fallback configuration
    [models.fallback]
    primary = "vertex/gemini-2.0-flash"
-   secondary = ["openai/gpt-4o-mini", "groq/llama-3.3-70b"]
+   secondary = ["openai/gpt-5-mini", "groq/llama-3.3-70b"]
    ```
 
 3. **Implement caching:**

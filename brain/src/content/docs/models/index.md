@@ -114,7 +114,7 @@ Production systems need resilience. ContextRouter supports automatic fallback be
 model = model_registry.get_llm_with_fallback(
     key="vertex/gemini-2.0-flash",        # Primary
     fallback_keys=[
-        "openai/gpt-4o-mini",              # First fallback
+        "openai/gpt-5-mini",              # First fallback
         "local/llama3.2",                   # Last resort (local)
     ],
     strategy="fallback"

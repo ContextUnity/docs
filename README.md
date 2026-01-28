@@ -6,10 +6,11 @@ This repository contains the documentation websites for all ContextUnity ecosyst
 
 ### 🌐 Live Sites
 
-- **[contextcore.dev](https://contextcore.dev)** - The Kernel: Core types, protocols, and shared libraries
-- **[contextrouter.dev](https://contextrouter.dev)** - The Gateway: AI Gateway and agent orchestration framework
-- **[contextbrain.dev](https://contextbrain.dev)** - Smart Memory: Vector storage, RAG pipelines, and knowledge graphs
-- **[contextcommerce.dev](https://contextcommerce.dev)** - The Platform: Django-based e-commerce with AI agents
+- **[contextcore.dev](https://contextcore.dev)** — The Kernel: Core types, protocols, and shared libraries
+- **[contextbrain.dev](https://contextbrain.dev)** — Smart Memory: Vector storage, RAG pipelines, and knowledge graphs
+- **[contextrouter.dev](https://contextrouter.dev)** — The Gateway: AI Gateway and agent orchestration framework
+- **[contextcommerce.dev](https://contextcommerce.dev)** — The Platform: Django-based e-commerce with AI agents
+- **[contextworker.dev](https://contextworker.dev)** — The Executor: Temporal-based workflow engine
 
 ### 📦 Components
 

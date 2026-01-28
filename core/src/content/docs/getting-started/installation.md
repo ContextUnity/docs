@@ -5,7 +5,7 @@ description: Install ContextCore and set up your environment.
 
 ## Prerequisites
 
-- **Python 3.11+**
+- **Python 3.13+**
 - **pip** or **uv** for package management
 
 ## Installation

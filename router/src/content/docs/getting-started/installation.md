@@ -58,7 +58,7 @@ uv pip install contextrouter[all]
 For contributing or local development:
 
 ```bash
-git clone https://github.com/ContextRouter/contextrouter.git
+git clone https://github.com/ContextUnity/contextrouter.git
 cd contextrouter
 
 # Create virtual environment
