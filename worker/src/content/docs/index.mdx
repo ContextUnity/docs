@@ -1,12 +1,12 @@
 ---
 title: ContextWorker
-description: Temporal Worker Infrastructure for ContextUnity
+description: Background Processing Engine for ContextUnity
 template: splash
 hero:
-  tagline: Background job processing and automation for the ContextUnity ecosystem. Powered by Temporal for reliable workflow orchestration.
+  tagline: The "Hands" of the ContextUnity ecosystem — durable workflows, scheduled jobs, and background agents powered by Temporal.
   image:
     file: ../../assets/worker-image.jpg
-    alt: ContextWorker - The Automation Layer
+    alt: ContextWorker - The Execution Layer
   actions:
     - text: Get Started
       link: /getting-started/
@@ -21,113 +21,159 @@ import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
 
 <CardGrid>
   <Card title="Temporal Workflows" icon="rocket">
-    Reliable workflow orchestration with Temporal. Automatic retries, timeouts, and state management for complex job pipelines.
+    Durable workflow execution that survives restarts and failures. Automatic retries, timeouts, and state management for complex job pipelines.
   </Card>
-  <Card title="Module Discovery" icon="puzzle">
-    Automatically discovers modules from installed packages. Business logic lives in Commerce, Worker just orchestrates.
+  <Card title="Agent Registry" icon="puzzle">
+    `@register` decorator pattern for background agents. Polling loops, lifecycle management, automatic discovery.
   </Card>
-  <Card title="Django ORM Support" icon="database">
-    Modules in Commerce use Django ORM directly. No SQL duplication, full model access.
+  <Card title="gRPC Service" icon="setting">
+    WorkerService exposes workflow triggers via gRPC using ContextUnit protocol. Type-safe inter-service communication.
   </Card>
-  <Card title="Scalable" icon="approve-check">
-    Run multiple worker replicas independently from Django. Scale background processing separately.
+  <Card title="Schedule Management" icon="approve-check">
+    Native Temporal scheduling with CLI tools. Create, pause, trigger, and manage recurring jobs.
   </Card>
 </CardGrid>
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                    ContextCommerce                            │
-│                                                               │
-│  modules/                                                     │
-│    harvester/   → Vendor data import                          │
-│    gardener/    → Product enrichment (Router graphs)          │
-│    sync/        → Channel sync (Horoshop, Prom)               │
-│                                                               │
-└──────────────────────────────────────────────────────────────┘
-                            │
-                            │ depends on
-                            ▼
-┌──────────────────────────────────────────────────────────────┐
-│                    ContextWorker                              │
-│                                                               │
-│  core/                                                        │
-│    registry.py  → Module discovery                            │
-│    worker.py    → Temporal worker factory                     │
-│                                                               │
-│  schedules.py   → Temporal schedule management                │
-│  __main__.py    → CLI entry point                             │
-│                                                               │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                         ContextRouter                               │
+│                     (The "Mind" — Orchestration)                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Orchestrates AI agents (Gardener, Matcher)                       │
+│  • Calls Worker to trigger workflows                                │
+└───────────────────────────────────────┬─────────────────────────────┘
+                                        │ triggers via gRPC
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                         ContextWorker                               │
+│                     (The "Hands" — Execution)                       │
+├─────────────────────────────────────────────────────────────────────┤
+│  ├── registry.py       ← Agent registry (@register)                │
+│  ├── service.py        ← gRPC WorkerService                        │
+│  ├── schedules.py      ← Temporal schedule management              │
+│  └── agents/           ← Background polling agents                 │
+└───────────────────────────────────────┬─────────────────────────────┘
+                                        │ runs workflows defined in
+                                        ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        ContextCommerce                              │
+│                    (The "Store" — Domain Logic)                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  • Defines harvester workflows/activities                           │
+│  • Product catalog and taxonomy                                     │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-Worker is **pure infrastructure**. All business logic lives in Commerce modules.
+Worker is **pure infrastructure**. All business logic lives in domain packages.
 
 ## Quick Start
 
 ```bash
-# Install Commerce (includes Worker)
-pip install contextcommerce
+# Install (with Commerce modules)
+pip install contextcommerce  # Includes contextworker
 
-# Run workers (discovers modules automatically)
+# Run all agents
 python -m contextworker
+
+# Run specific agents
+python -m contextworker --agents gardener harvester
 
 # Create schedules
 python -m contextworker.schedules create --tenant-id myproject
+
+# List schedules
+python -m contextworker.schedules list
 ```
 
 ## Quick Links
 
 <CardGrid>
-  <LinkCard title="Installation" href="/getting-started/installation/" description="Get ContextWorker running." />
-  <LinkCard title="Harvester" href="/guides/harvester/" description="Vendor data import workflows." />
-  <LinkCard title="Gardener" href="/guides/gardener/" description="Product taxonomy classification." />
-  <LinkCard title="Schedules" href="/guides/schedules/" description="Manage Temporal schedules." />
+  <LinkCard title="Getting Started" href="/getting-started/" description="Installation and first steps." />
+  <LinkCard title="Temporal Workflows" href="/guides/workflows/" description="Durable workflow patterns." />
+  <LinkCard title="gRPC Integration" href="/guides/grpc/" description="Service-to-service communication." />
+  <LinkCard title="CLI Reference" href="/reference/cli/" description="Command-line tools." />
 </CardGrid>
 
-## Commerce Modules
+<CardGrid>
+  <LinkCard title="Background Agents" href="/guides/agents/" description="Polling agents with registry." />
+  <LinkCard title="Schedules" href="/guides/schedules/" description="Manage recurring jobs." />
+  <LinkCard title="Harvester" href="/guides/harvester/" description="Data import workflows." />
+  <LinkCard title="Gardener" href="/guides/gardener/" description="AI enrichment integration." />
+</CardGrid>
 
-### Harvester Module
+## Core Components
 
-Automated inventory aggregation from 15+ outdoor gear suppliers:
+### Agent Registry
 
-- **Fetchers** — HTTP, Email, and API-based data fetching
-- **Transformers** — XLSX, CSV, and YAML data normalization
-- **Django ORM** — Direct access to Commerce models
+Background agents register via decorator:
 
-### Gardener Module
+```python
+from contextworker.registry import register, BaseAgent
 
-Product enrichment via Router graphs:
+@register("myagent")
+class MyAgent(BaseAgent):
+    name = "myagent"
+    
+    async def run(self):
+        while self._running:
+            items = await self.poll_for_work()
+            await asyncio.sleep(60)
+```
 
-- **Taxonomy** — AI classification into category tree
-- **NER** — Named entity recognition (brands, materials)
-- **Knowledge Graph** — Product relationships
+### gRPC Service
 
-### Sync Module
+WorkerService exposes workflow triggers:
 
-Channel synchronization:
+```python
+# Trigger workflow via ContextUnit
+unit = ContextUnit(
+    payload={
+        "workflow_type": "harvest",
+        "supplier_code": "camping-trade",
+    },
+    provenance=["commerce:api"],
+)
+```
 
-- **Horoshop** — Ukrainian e-commerce platform
-- **Prom.ua** — Marketplace (planned)
-- **Rozetka** — Marketplace (planned)
+### Schedule Management
+
+```bash
+# Create default schedules
+python -m contextworker.schedules create --tenant-id myproject
+
+# Pause/trigger schedules
+python -m contextworker.schedules pause gardener-every-5min
+python -m contextworker.schedules trigger harvest-camping-trade
+```
+
+## Built-in Agents
+
+| Agent | Purpose | Poll Interval |
+|-------|---------|---------------|
+| `gardener` | Enrich pending products | 5 min |
+| `harvester` | Trigger supplier imports | 1 hour |
+| `lexicon` | Sync terminology | 15 min |
 
 ## Docker Compose
 
 ```yaml
 services:
-  django:
-    image: commerce:latest
-    command: python manage.py runserver 0.0.0.0:8000
-    
-  worker:
-    image: commerce:latest  # Same image!
-    command: python -m contextworker
-    deploy:
-      replicas: 3  # Scale workers independently
-      
   temporal:
     image: temporalio/auto-setup:latest
+    ports:
+      - "7233:7233"
+      - "8080:8080"  # Temporal UI
+
+  worker:
+    image: contextcommerce:latest
+    command: python -m contextworker
+    environment:
+      - TEMPORAL_HOST=temporal:7233
+      - DATABASE_URL=postgres://...
+    deploy:
+      replicas: 3  # Scale workers independently
 ```
 
 ---
@@ -137,8 +183,9 @@ services:
 ```bash
 # Temporal
 TEMPORAL_HOST=localhost:7233
+WORKER_TASK_QUEUE=default
 
-# Database (Django)
+# Database (for activities accessing Commerce)
 DATABASE_URL=postgresql://user:pass@localhost/commerce
 
 # Tenant

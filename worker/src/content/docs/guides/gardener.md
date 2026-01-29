@@ -1,53 +1,66 @@
 ---
 title: Gardener Integration
-description: Running the Gardener product enrichment workflow
+description: Running the Gardener AI enrichment workflow
 ---
 
 # Gardener Integration
 
-Gardener is a product enrichment workflow that runs on Worker infrastructure. The actual module lives in **ContextCommerce**.
+Gardener is an AI-powered enrichment workflow that classifies and enriches records using ContextRouter's agent graphs.
 
-> For module implementation details, see [Commerce Gardener Module](/commerce/modules/gardener/).
+> **Note:** Gardener is an example integration pattern. Your domain package (e.g., Commerce) defines the actual enrichment logic.
 
 ## Overview
 
-Worker discovers and runs the Gardener module from Commerce:
+Worker provides infrastructure for running enrichment workflows:
 
 ```
-Worker (infrastructure)          Commerce (modules)
-       │                              │
-       │  discovers                   │
-       └──────────────────────────────┘
-                    │
-                    ▼
-            ┌──────────────┐
-            │  Gardener    │
-            │  Workflow    │
-            └──────────────┘
-                    │
-                    ▼
-            ┌──────────────┐
-            │  Temporal    │
-            │  Task Queue  │
-            └──────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                       ContextRouter                              │
+│                   (AI Agent Orchestration)                       │
+│                                                                 │
+│  cortex/graphs/                                                 │
+│    enrichment/    ← AI classification graphs                    │
+│                                                                 │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │ called by
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       ContextWorker                              │
+│                                                                 │
+│  agents/                                                        │
+│    gardener.py    ← Polling agent (polls for pending items)     │
+│                                                                 │
+│  workflows/                                                     │
+│    enrichment.py  ← Temporal workflow (batch processing)        │
+│                                                                 │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │ reads/writes
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    Your Domain Package                           │
+│                                                                 │
+│  models/                                                        │
+│    Record          ← Records to enrich                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Running
 
-### Start Worker
+### Start Worker with Gardener Agent
 
 ```bash
-# All modules
+# All agents
 python -m contextworker
 
 # Gardener only
-python -m contextworker --modules gardener
+python -m contextworker --agents gardener
 ```
 
 ### Schedules
 
 ```bash
-# Create schedules
+# Create enrichment schedule
 python -m contextworker.schedules create --tenant-id myproject
 
 # List schedules
@@ -57,55 +70,136 @@ python -m contextworker.schedules list
 python -m contextworker.schedules pause gardener-every-5min-myproject
 python -m contextworker.schedules unpause gardener-every-5min-myproject
 
-# Delete
-python -m contextworker.schedules delete gardener-every-5min-myproject
+# Trigger immediately
+python -m contextworker.schedules trigger gardener-every-5min-myproject
 ```
 
-### Manual Trigger
+### Manual Trigger (Temporal CLI)
 
 ```bash
-# Via Temporal CLI
 temporal workflow start \
-  --type GardenerWorkflow \
-  --task-queue gardener-tasks \
-  --input '["myproject", 50]'
+  --type EnrichmentWorkflow \
+  --task-queue enrichment-tasks \
+  --input '["tenant-id", 50]'
 ```
 
-## Temporal Web UI
+## Enrichment Workflow
 
-Monitor workflows at:
+```python
+from temporalio import workflow
+from datetime import timedelta
 
+@workflow.defn
+class EnrichmentWorkflow:
+    @workflow.run
+    async def run(self, tenant_id: str, batch_size: int = 50) -> EnrichmentResult:
+        # Step 1: Get pending records
+        record_ids = await workflow.execute_activity(
+            get_pending_records,
+            tenant_id,
+            batch_size,
+            start_to_close_timeout=timedelta(minutes=2),
+        )
+        
+        if not record_ids:
+            return EnrichmentResult(processed=0, failed=0)
+        
+        # Step 2: Enrich via Router
+        result = await workflow.execute_activity(
+            enrich_records,
+            record_ids,
+            start_to_close_timeout=timedelta(minutes=10),
+            retry_policy=workflow.RetryPolicy(maximum_attempts=3),
+        )
+        
+        return result
 ```
-http://localhost:8233
+
+## Gardener Polling Agent
+
+```python
+@register("gardener")
+class GardenerAgent(BaseAgent):
+    name = "gardener"
+    
+    async def run(self):
+        while self._running:
+            try:
+                # Check for pending records
+                pending = await self.count_pending()
+                
+                if pending > 0:
+                    logger.info(f"Found {pending} pending records")
+                    await self.trigger_enrichment()
+                
+                await asyncio.sleep(300)  # 5 minutes
+            except Exception as e:
+                logger.error(f"Gardener error: {e}")
+                await asyncio.sleep(300)
+    
+    async def trigger_enrichment(self):
+        """Start enrichment workflow via Temporal."""
+        client = await get_temporal_client()
+        await client.start_workflow(
+            EnrichmentWorkflow.run,
+            args=[self.config.get("tenant_id", "default"), 50],
+            task_queue="enrichment-tasks",
+            id=f"gardener-{datetime.now().isoformat()}",
+        )
 ```
 
 ## Configuration
 
-| Variable | Description |
-|----------|-------------|
-| `TEMPORAL_HOST` | Temporal server (default: localhost:7233) |
-| `DATABASE_URL` | PostgreSQL connection |
-| `TENANT_ID` | Default tenant ID |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TEMPORAL_HOST` | Temporal server | `localhost:7233` |
+| `DATABASE_URL` | PostgreSQL connection | Required |
+| `TENANT_ID` | Default tenant ID | `default` |
+| `GARDENER_BATCH_SIZE` | Records per batch | `50` |
+| `GARDENER_POLL_INTERVAL` | Seconds between polls | `300` |
+
+## Temporal UI
+
+Monitor workflows at:
+
+```
+http://localhost:8080
+```
+
+- View running enrichment workflows
+- Check processing statistics
+- Retry failed activities
 
 ## Troubleshooting
 
-### Module Not Found
+### No Records Found
 
 ```
-No modules discovered!
+Found 0 pending records
 ```
 
-Check that Commerce is installed:
+- Verify database connection
+- Check `enrichment_status` field in your records
+- Ensure tenant ID is correct
 
-```bash
-pip list | grep contextcommerce
+### Router Errors
+
 ```
+Failed to call Router graph: Connection refused
+```
+
+- Verify ContextRouter is running
+- Check Router gRPC endpoint configuration
+- Review Router logs for errors
 
 ### Workflow Stuck
 
-Check Temporal UI for workflow status and errors.
+1. Check Temporal UI for workflow status
+2. Review activity execution history
+3. Check for timeout issues
 
 ## Next Steps
 
-- [Harvester Guide](/guides/harvester/) - Vendor data import
-- [Schedules Guide](/guides/schedules/) - Manage all schedules
+- [Harvester Guide](/guides/harvester/) — Data import workflows
+- [Schedules Guide](/guides/schedules/) — Manage recurring jobs
+- [Agents Guide](/guides/agents/) — Create custom agents

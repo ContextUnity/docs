@@ -1,250 +1,301 @@
 ---
 title: Harvester Guide
-description: Configure data harvesting from suppliers
+description: Configure data harvesting workflows with Temporal
 ---
 
 # Harvester Guide
 
-The Harvester module automates data collection from multiple suppliers, transforming raw inventory data into normalized product records.
+The Harvester module automates data collection from external sources, transforming raw data into normalized records via Temporal workflows.
 
-## Supported Suppliers
+## Architecture
 
-ContextWorker supports 15+ suppliers out of the box:
+Worker provides the **infrastructure** for harvesting. Business logic (transformers, source configs) lives in your **domain package** (e.g., ContextCommerce).
 
-| Code | Name | Format | Auth |
-|------|------|--------|------|
-| `vysota` | Висота | XLSX | URL |
-| `abris` | Абріс | XLSX | URL |
-| `theclimb` | TheClimb | Scraper | Login |
-| `shambala` | Шамбала | XLSX | Cookie |
-| `terraincognita` | Terra Incognita | XLSX | Password |
-| `travelextreme` | Travel Extreme | XLSX | URL |
-| `adrenalin` | Адреналін | XLSX | URL |
-| `arnica` | Арніка | XLSX | Login |
-| `campingtrade` | Camping Trade | API | Token |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       Your Domain Package                        │
+│                                                                 │
+│  sources/         transformers/        models/                  │
+│    supplier.toml    supplier.py          Product                │
+│                                                                 │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │ registers activities
+                                 ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                       ContextWorker                              │
+│                                                                 │
+│  harvester/                                                     │
+│    workflow.py     ← HarvestWorkflow orchestration              │
+│    activities.py   ← download_feed, parse_products, store       │
+│                                                                 │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+                                 ▼
+                         ┌──────────────┐
+                         │   Temporal   │
+                         └──────────────┘
+```
 
 ## Pipeline Overview
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Fetch     │────►│  Transform  │────►│   Load      │────►│  Gardener   │
-│  (Fetcher)  │     │(Transformer)│     │   (DB)      │     │ (Enrichment)│
+│   Fetch     │────►│  Transform  │────►│   Load      │────►│  Enrich     │
+│  (Activity) │     │  (Activity) │     │  (Activity) │     │  (Optional) │
 └─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
 ```
 
-1. **Fetch** - Download data from supplier (HTTP, Email, API)
-2. **Transform** - Parse and normalize into standard format
-3. **Load** - Insert/update records in database
-4. **Gardener** - AI enrichment for new/updated products
+1. **Fetch** — Download data from source (HTTP, API, file)
+2. **Transform** — Parse and normalize into standard format
+3. **Load** — Insert/update records in database
+4. **Enrich** — Trigger enrichment workflow (optional)
+
+## HarvestWorkflow
+
+```python
+from temporalio import workflow
+from datetime import timedelta
+
+@workflow.defn
+class HarvestWorkflow:
+    @workflow.run
+    async def run(self, source_id: str, tenant_id: str) -> HarvestResult:
+        # Step 1: Download data
+        raw_data = await workflow.execute_activity(
+            download_feed,
+            source_id,
+            start_to_close_timeout=timedelta(minutes=5),
+        )
+        
+        # Step 2: Parse and transform
+        records = await workflow.execute_activity(
+            parse_records,
+            raw_data,
+            source_id,
+            start_to_close_timeout=timedelta(minutes=10),
+        )
+        
+        # Step 3: Store in database
+        result = await workflow.execute_activity(
+            store_records,
+            records,
+            tenant_id,
+            start_to_close_timeout=timedelta(minutes=5),
+        )
+        
+        # Step 4: Trigger enrichment (optional)
+        if result.new_records > 0:
+            await workflow.start_child_workflow(
+                EnrichmentWorkflow.run,
+                result.record_ids,
+            )
+        
+        return result
+```
+
+## Activities
+
+Activities contain the actual business logic:
+
+```python
+from temporalio import activity
+
+@activity.defn
+async def download_feed(source_id: str) -> bytes:
+    """Download data from configured source."""
+    source = await get_source_config(source_id)
+    async with httpx.AsyncClient() as client:
+        response = await client.get(source.url)
+        return response.content
+
+@activity.defn
+async def parse_records(raw_data: bytes, source_id: str) -> list[dict]:
+    """Parse using source-specific transformer."""
+    transformer = get_transformer(source_id)
+    return transformer.parse(raw_data)
+
+@activity.defn
+async def store_records(records: list[dict], tenant_id: str) -> StoreResult:
+    """Upsert records into database."""
+    created, updated, errors = 0, 0, 0
+    
+    for record in records:
+        try:
+            _, was_created = await upsert_record(tenant_id, record)
+            if was_created:
+                created += 1
+            else:
+                updated += 1
+        except Exception as e:
+            errors += 1
+            activity.logger.error(f"Failed: {e}")
+    
+    return StoreResult(created=created, updated=updated, errors=errors)
+```
+
+## Running Harvester
+
+### Via CLI
+
+```bash
+# Run worker with harvester agent
+python -m contextworker --agents harvester
+
+# Trigger specific source via Temporal CLI
+temporal workflow start \
+  --type HarvestWorkflow \
+  --task-queue harvest-tasks \
+  --input '["source-id", "tenant-id"]'
+```
+
+### Via Schedule
+
+```bash
+# Create harvest schedule
+python -m contextworker.schedules create --tenant-id myproject
+
+# Trigger immediately
+python -m contextworker.schedules trigger harvest-source-myproject
+```
 
 ## Configuration
 
-### Supplier Config Files
-
-Each supplier has a TOML config in `config/suppliers/`:
+### Source Config (TOML)
 
 ```toml
-# config/suppliers/vysota.toml
+# config/sources/mysource.toml
 
-[dealer]
-code = "vysota"
-name = "Висота"
-country = "UKR"
-currency = "UAH"
+[source]
+id = "mysource"
+name = "My Data Source"
+format = "xlsx"  # or csv, json, api
 
-[[sources]]
-name = "outdoor"
-url = "https://supplier.com/stock.xlsx"
-format = "xlsx"
-sheet = 0
+[connection]
+url = "https://example.com/data.xlsx"
+# auth_type = "basic"  # optional
+# username = "${MYSOURCE_USERNAME}"
 
 [columns]
-sku = "Артикул"
-name = "Найменування"
-rrp = "РРЦ"
-dealer_price = "Оптова ціна"
-stock = "Залишок"
-
-[brands]
-allowlist = ["Osprey", "Deuter", "MSR"]
-denylist = ["NoName"]
+id = "ID"
+name = "Name"
+value = "Value"
 ```
 
 ### Environment Variables
 
 ```bash
-# Credentials (from vault)
-VYSOTA_USERNAME=...
-VYSOTA_PASSWORD=...
-ARNICA_API_KEY=...
+# Temporal
+TEMPORAL_HOST=localhost:7233
 
-# General settings
+# Source credentials (from secrets manager)
+MYSOURCE_USERNAME=...
+MYSOURCE_PASSWORD=...
+
+# General
 HARVESTER_RETENTION_DAYS=30
-HARVESTER_TIMEZONE=Europe/Kyiv
 ```
 
-## Running Harvester
+## Adding a New Source
 
-### Full Pipeline
-
-```bash
-# All suppliers
-mise run harvest_all
-
-# Single supplier
-mise run harvest_vysota
-
-# With force (re-process unchanged data)
-python -m contextworker harvest --supplier vysota --force
-```
-
-### Individual Steps
-
-```bash
-# Fetch only
-mise run fetch_vysota
-
-# Transform only (uses cached fetch)
-mise run transform_vysota
-
-# Fetch + transform
-mise run vysota_all
-```
-
-## Adding a New Supplier
-
-### 1. Create Config
+### Step 1: Create Config
 
 ```toml
-# config/suppliers/newsupplier.toml
-[dealer]
-code = "newsupplier"
-name = "New Supplier"
-
-[[sources]]
-name = "main"
-url = "https://newsupplier.com/data.xlsx"
+# config/sources/newsource.toml
+[source]
+id = "newsource"
+name = "New Source"
 format = "xlsx"
+
+[connection]
+url = "https://newsource.com/data.xlsx"
 ```
 
-### 2. Create Transformer (if needed)
+### Step 2: Create Transformer (if needed)
 
 ```python
-# harvester/transformers/newsupplier.py
+# your_package/transformers/newsource.py
 
-from harvester.base import BaseTransformer
+from .base import BaseTransformer
 
-class NewSupplierTransformer(BaseTransformer):
-    def transform(self, data: pd.DataFrame) -> list[Product]:
-        # Custom transformation logic
-        products = []
-        for _, row in data.iterrows():
-            product = self.normalize_row(row)
-            products.append(product)
-        return products
+class NewSourceTransformer(BaseTransformer):
+    def transform(self, data: bytes) -> list[dict]:
+        df = pd.read_excel(io.BytesIO(data))
+        records = []
+        for _, row in df.iterrows():
+            records.append(self.normalize_row(row))
+        return records
 ```
 
-### 3. Register in Registry
+### Step 3: Register Transformer
 
 ```python
-# harvester/registry.py
+# your_package/registry.py
 
 TRANSFORMERS = {
-    "newsupplier": "harvester.transformers.newsupplier.NewSupplierTransformer",
+    "newsource": "your_package.transformers.newsource.NewSourceTransformer",
 }
-```
-
-### 4. Add Mise Tasks
-
-```toml
-# .mise.toml
-
-[tasks.fetch_newsupplier]
-run = "python -m contextworker fetch newsupplier"
-
-[tasks.transform_newsupplier]
-run = "python -m contextworker transform newsupplier"
-
-[tasks.newsupplier_all]
-run = "mise run fetch_newsupplier && mise run transform_newsupplier"
 ```
 
 ## Scheduling
 
-### Automated Daily Runs
+### Temporal Native Schedules
 
-The scheduler runs all suppliers daily:
-
-```python
-# config.py
-SCHEDULE = {
-    "enabled": True,
-    "run_time": "06:00",
-    "timezone": "Europe/Kyiv",
-}
+```bash
+# Create schedule for source
+python -m contextworker.schedules create-harvest \
+  --source-id newsource \
+  --cron "0 6 * * *" \
+  --tenant-id myproject
 ```
 
-### Temporal Scheduling
-
-For Temporal-based scheduling:
+### Default Schedule Config
 
 ```python
-# workflows.py
-@workflow.defn
-class ScheduledHarvestWorkflow:
-    @workflow.run
-    async def run(self):
-        suppliers = get_enabled_suppliers()
-        for supplier in suppliers:
-            await workflow.execute_child_workflow(
-                HarvestWorkflow.run,
-                supplier,
-            )
+ScheduleConfig(
+    schedule_id="harvest-{source_id}-{tenant_id}",
+    workflow_name="HarvestWorkflow",
+    task_queue="harvest-tasks",
+    cron="0 6 * * *",  # 6 AM daily
+)
 ```
 
 ## Monitoring
 
-### Alerts
+### Temporal UI
 
-Configure email alerts for:
-- Fetch failures
-- Stale data (no update in 24+ hours)
-- Transform errors
-
-```python
-NOTIFICATIONS = {
-    "enabled": True,
-    "send_errors": True,
-    "send_daily_digest": True,
-    "recipients": ["team@example.com"],
-}
-```
+Access at `http://localhost:8080` to:
+- View running workflows
+- Check execution history
+- Retry failed activities
 
 ### Logs
 
 ```bash
-# View harvester logs
-journalctl -u contextworker -f | grep harvester
+# Worker logs
+journalctl -u contextworker -f
 
-# Specific supplier
-mise run harvest_vysota 2>&1 | tee logs/vysota.log
+# Specific workflow (via Temporal CLI)
+temporal workflow show --workflow-id harvest-mysource-myproject
 ```
 
 ## Troubleshooting
 
-### Empty Data
-
+### Fetch Failures
 1. Check source URL accessibility
 2. Verify authentication credentials
-3. Check column mappings in config
+3. Check network/firewall settings
 
-### Duplicate Products
+### Transform Errors
+1. Verify column mappings
+2. Check data format matches config
+3. Review transformer logic
 
-1. Verify SKU column mapping
-2. Check deduplication logic in transformer
-3. Review merge strategy settings
+### Workflow Stuck
+1. Check Temporal UI for errors
+2. Review activity timeouts
+3. Check retry policy configuration
 
 ## Next Steps
 
-- [Gardener Agent](/guides/gardener/) - AI enrichment
-- [Workflows](/guides/workflows/) - Custom workflow creation
+- [Agents Guide](/guides/agents/) — Background polling agents
+- [Schedules Guide](/guides/schedules/) — Manage recurring jobs

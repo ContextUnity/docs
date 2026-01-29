@@ -158,7 +158,38 @@ results = await run_batch_completions(
 - Not for real-time/interactive use
 - Max 50,000 requests per batch
 
+### Reasoning Models (o1, o3, GPT-5)
+
+OpenAI's reasoning models require special handling:
+
+```python
+# Reasoning models use max_completion_tokens, not max_tokens
+# They also don't support custom temperature (fixed at 1)
+llm = model_registry.create_llm("openai/gpt-5-mini", config=config)
+
+# Budget extra tokens for chain-of-thought reasoning
+request = ModelRequest(
+    parts=[TextPart(text="Analyze this product...")],
+    max_output_tokens=8000,  # ~4k reasoning + ~4k response
+)
+```
+
+#### Key Differences from Standard Models
+
+| Parameter | Standard Models | Reasoning Models |
+|-----------|----------------|------------------|
+| `max_tokens` | ✅ Supported | ❌ Use `max_completion_tokens` |
+| `temperature` | ✅ Customizable | ❌ Fixed at 1.0 |
+| Token budget | Output only | Reasoning + Output |
+
+#### Best Practices
+
+- **Set higher token limits**: Reasoning takes tokens. Budget 2x-4x what you need for output.
+- **Don't set temperature**: Will be ignored or cause errors.
+- **Use for complex tasks**: Simple queries don't benefit from reasoning overhead.
+
 ---
+
 
 ## Anthropic
 
