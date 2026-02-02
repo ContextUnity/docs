@@ -5,12 +5,42 @@ description: Configure embedding models for semantic search and RAG.
 
 Embedding models convert text into dense vectors, enabling semantic search and similarity matching. Choosing the right embedding model is crucial for RAG quality.
 
+## ContextBrain Embedder
+
+ContextBrain has built-in embedder support with automatic provider selection:
+
+```bash
+# Environment configuration
+EMBEDDER_TYPE=openai      # Use OpenAI embeddings (1536 dims)
+EMBEDDER_TYPE=local       # Use SentenceTransformers (768 dims)
+
+# If EMBEDDER_TYPE is not set:
+# - Uses OpenAI if OPENAI_API_KEY is present
+# - Falls back to local SentenceTransformers otherwise
+```
+
+### Supported Dimensions
+
+| Embedder | Model | Dimensions | Notes |
+|----------|-------|------------|-------|
+| **OpenAI** | text-embedding-3-small | **1536** | Default if OPENAI_API_KEY set |
+| **OpenAI** | text-embedding-3-large | 3072 | Higher quality |
+| **Local** | all-mpnet-base-v2 | 768 | Requires sentence-transformers |
+
+:::caution[Database Must Match]
+Your database schema must have the correct `VECTOR(dim)` size. Mismatched dimensions will cause errors like:
+```
+expected 768 dimensions, not 1536
+```
+See [Migrations](#changing-embedding-dimensions) below.
+:::
+
 ## Available Providers
 
 | Provider | Model | Dimensions | Best For |
 |----------|-------|------------|----------|
+| **OpenAI** | text-embedding-3-small | 1536 | Quality, ecosystem, **ContextBrain default** |
 | **Vertex AI** | text-embedding-004 | 768 | Production, multilingual |
-| **OpenAI** | text-embedding-3-small | 1536 | Quality, ecosystem |
 | **HuggingFace** | all-mpnet-base-v2 | 768 | Local, privacy, cost |
 | **HuggingFace** | all-MiniLM-L6-v2 | 384 | Speed, lower memory |
 
@@ -224,3 +254,71 @@ Cost:     Local (free) < Vertex < OpenAI
 3. **Batch large workloads** — Use batch processing for efficiency
 4. **Test retrieval quality** — Evaluate with your actual queries before committing
 5. **Consider latency** — Local models have no network round-trip
+
+## Changing Embedding Dimensions
+
+If you need to change embedding models (e.g., from local 768-dim to OpenAI 1536-dim), you must migrate the database schema.
+
+### Using Alembic Migration
+
+ContextBrain includes a migration for switching to OpenAI's 1536 dimensions:
+
+```bash
+cd contextbrain
+uv run alembic upgrade head
+```
+
+This runs `0006_vector_dim_1536.py` which:
+1. Drops existing HNSW indexes
+2. Alters `embedding` columns from `VECTOR(768)` to `VECTOR(1536)`
+3. Recreates HNSW indexes
+
+:::warning[Data Loss]
+All existing embeddings are set to NULL during migration. They will be regenerated on the next upsert operation.
+:::
+
+### Manual Migration
+
+If you need to change dimensions manually:
+
+```sql
+-- Drop indexes first
+DROP INDEX IF EXISTS knowledge_nodes_embedding_hnsw;
+DROP INDEX IF EXISTS news_facts_embedding_hnsw;
+DROP INDEX IF EXISTS news_posts_embedding_hnsw;
+
+-- Alter column type (clears existing data)
+ALTER TABLE knowledge_nodes 
+ALTER COLUMN embedding TYPE VECTOR(1536) 
+USING NULL::VECTOR(1536);
+
+ALTER TABLE news_facts 
+ALTER COLUMN embedding TYPE VECTOR(1536) 
+USING NULL::VECTOR(1536);
+
+ALTER TABLE news_posts 
+ALTER COLUMN embedding TYPE VECTOR(1536) 
+USING NULL::VECTOR(1536);
+
+-- Recreate indexes
+CREATE INDEX knowledge_nodes_embedding_hnsw 
+ON knowledge_nodes USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX news_facts_embedding_hnsw 
+ON news_facts USING hnsw (embedding vector_cosine_ops);
+
+CREATE INDEX news_posts_embedding_hnsw 
+ON news_posts USING hnsw (embedding vector_cosine_ops);
+```
+
+### Affected Tables
+
+ContextBrain uses embeddings in these tables:
+
+| Table | Purpose |
+|-------|---------|
+| `knowledge_nodes` | Semantic knowledge chunks |
+| `episodic_events` | Conversation memory |
+| `catalog_taxonomy` | Product categories |
+| `news_facts` | Validated news items |
+| `news_posts` | Generated posts |

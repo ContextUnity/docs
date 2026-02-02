@@ -1,13 +1,26 @@
 ---
 title: ContextUnit Protocol
-description: The atomic unit of data exchange in ContextUnity.
+description: The universal data contract for all gRPC communication in ContextUnity.
 ---
 
-The ContextUnit is the **atomic unit** of all data exchange in the ContextUnity ecosystem. Every service MUST use ContextUnit for communication to ensure consistency, traceability, and security.
+The ContextUnit is the **universal data contract** for all gRPC communication in the ContextUnity ecosystem. Every service MUST use ContextUnit for communication to ensure consistency, traceability, and security.
+
+## Universal Protocol
+
+**All gRPC methods in ContextUnity accept and return ContextUnit:**
+
+```protobuf
+service BrainService {
+    rpc Search(ContextUnit) returns (stream ContextUnit);
+    rpc Upsert(ContextUnit) returns (ContextUnit);
+    rpc UpsertNewsItem(ContextUnit) returns (ContextUnit);
+    rpc UpsertNewsPost(ContextUnit) returns (ContextUnit);
+}
+```
+
+Domain-specific data is passed via the `payload` field. Server-side validation is done using Pydantic models.
 
 ## Structure
-
-A ContextUnit contains:
 
 ```python
 from contextcore import ContextUnit, SecurityScopes, UnitMetrics
@@ -21,7 +34,7 @@ unit = ContextUnit(
     
     # Content
     modality: str,              # "text", "audio", or "spatial"
-    payload: dict[str, Any],    # Actual data content
+    payload: dict[str, Any],    # Actual data content (domain-specific)
     
     # Tracking
     provenance: list[str],       # Data journey (where it came from)
@@ -36,6 +49,70 @@ unit = ContextUnit(
 )
 ```
 
+## gRPC Usage
+
+### Sending a Request
+
+```python
+from contextcore import ContextUnit, brain_pb2_grpc, context_unit_pb2
+import grpc
+
+async def search_brain(tenant_id: str, query_text: str):
+    channel = grpc.aio.insecure_channel("localhost:50051")
+    stub = brain_pb2_grpc.BrainServiceStub(channel)
+    
+    # Build ContextUnit with domain-specific data in payload
+    unit = ContextUnit(
+        payload={
+            "tenant_id": tenant_id,
+            "query_text": query_text,
+            "limit": 10,
+            "source_types": ["news_fact", "document"],
+        },
+        provenance=["my_service:search"],
+    )
+    
+    # Convert to protobuf and send
+    results = []
+    async for response_pb in stub.Search(unit.to_protobuf(context_unit_pb2)):
+        result = ContextUnit.from_protobuf(response_pb)
+        results.append(result.payload)
+    
+    await channel.close()
+    return results
+```
+
+### Server-Side Validation
+
+On the server, use Pydantic to validate payloads:
+
+```python
+from pydantic import BaseModel
+
+class SearchPayload(BaseModel):
+    tenant_id: str
+    query_text: str
+    limit: int = 10
+    source_types: list[str] = []
+
+async def Search(self, request, context):
+    unit = ContextUnit.from_protobuf(request)
+    params = SearchPayload(**unit.payload)  # Validate
+    
+    results = await self.storage.search(
+        query=params.query_text,
+        tenant_id=params.tenant_id,
+        limit=params.limit,
+    )
+    
+    for res in results:
+        yield ContextUnit(
+            trace_id=unit.trace_id,
+            payload={"id": res.id, "content": res.content, "score": res.score},
+            provenance=unit.provenance + ["brain:search"],
+        ).to_protobuf(context_unit_pb2)
+```
+
 ## Core Fields
 
 ### Identifiers
@@ -47,7 +124,7 @@ unit = ContextUnit(
 ### Content
 
 - **modality**: Data type — `"text"`, `"audio"`, or `"spatial"`
-- **payload**: The actual data as a dictionary (JSON-serializable)
+- **payload**: The actual data as a dictionary (JSON-serializable). Domain-specific data goes here.
 
 ### Tracking
 
@@ -77,7 +154,13 @@ unit = ContextUnit(
 )
 ```
 
-**Rule**: If a step isn't in the provenance, it didn't happen.
+**Provenance format**: `service:component:action`
+
+Examples:
+- `router:news_engine:harvest`
+- `brain:search`
+- `sdk:brain_client:upsert`
+- `worker:gardener`
 
 ## Security Scopes
 
@@ -130,14 +213,37 @@ unit.metrics = UnitMetrics(
 
 ## Best Practices
 
-1. **Always set trace_id** — Propagate across service boundaries
-2. **Update provenance** — Add each transformation step
-3. **Set security scopes** — Restrict access appropriately
-4. **Track metrics** — Monitor performance and costs
-5. **Use parent_unit_id** — Link related units for hierarchical tracing
+1. **Always propagate trace_id** — Use the same trace_id across all related operations
+2. **Update provenance** — Add each transformation step using `service:component` format
+3. **Use Pydantic for validation** — Server-side validation of payloads ensures type safety
+4. **Set security scopes** — Restrict access appropriately for sensitive data
+5. **Track metrics** — Monitor performance and costs for observability
+6. **Use parent_unit_id** — Link related units for hierarchical tracing
+
+## Migration from Domain-Specific Messages
+
+If you have old code using domain-specific proto messages:
+
+```python
+# ❌ OLD (deprecated)
+request = brain_pb2.SearchRequest(
+    tenant_id=tenant_id,
+    query_text=query,
+    limit=10,
+)
+response = await stub.Search(request)
+
+# ✅ NEW (ContextUnit protocol)
+unit = ContextUnit(
+    payload={"tenant_id": tenant_id, "query_text": query, "limit": 10},
+    provenance=["my_service:search"],
+)
+async for response_pb in stub.Search(unit.to_protobuf(context_unit_pb2)):
+    result = ContextUnit.from_protobuf(response_pb)
+```
 
 ## Next Steps
 
-- **[Structure Details](/contextunit/structure/)** — Deep dive into each field
-- **[Security Scopes](/contextunit/security/)** — Capability-based access control
+- **[Security](/contextunit/security/)** — Capability-based access control
 - **[Provenance](/contextunit/provenance/)** — Tracking data journey
+- **[gRPC Integration](/guides/grpc/)** — Detailed gRPC patterns

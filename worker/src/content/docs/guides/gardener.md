@@ -15,8 +15,8 @@ Worker provides infrastructure for running enrichment workflows:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                       ContextRouter                              │
-│                   (AI Agent Orchestration)                       │
+│                       ContextRouter                             │
+│                   (AI Agent Orchestration)                      │
 │                                                                 │
 │  cortex/graphs/                                                 │
 │    enrichment/    ← AI classification graphs                    │
@@ -25,7 +25,7 @@ Worker provides infrastructure for running enrichment workflows:
                                  │ called by
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                       ContextWorker                              │
+│                       ContextWorker                             │
 │                                                                 │
 │  agents/                                                        │
 │    gardener.py    ← Polling agent (polls for pending items)     │
@@ -37,7 +37,7 @@ Worker provides infrastructure for running enrichment workflows:
                                  │ reads/writes
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Your Domain Package                           │
+│                    Your Domain Package                          │
 │                                                                 │
 │  models/                                                        │
 │    Record          ← Records to enrich                          │
