@@ -1,0 +1,68 @@
+---
+title: ContextWorker
+description: Temporal-based durable workflows, scheduled jobs, and background agent execution.
+---
+
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+ContextWorker is the **"Hands"** of the ContextUnity ecosystem. It provides durable workflow infrastructure, scheduled jobs, and sub-agent execution — all built on [Temporal.io](https://temporal.io/).
+
+<CardGrid>
+  <Card title="Durable Workflows" icon="clock">
+    Temporal.io workflows that survive restarts and failures, with automatic retries and state persistence.
+  </Card>
+  <Card title="Scheduled Jobs" icon="calendar">
+    Cron-based recurring tasks — harvesting, enrichment, catalog sync, data retention.
+  </Card>
+  <Card title="gRPC Service" icon="laptop">
+    Trigger and monitor workflows from other services via ContextUnit protocol.
+  </Card>
+  <Card title="Sub-Agent System" icon="setting">
+    Isolated execution environments for agent-generated code with Brain recording.
+  </Card>
+</CardGrid>
+
+## Architecture
+
+```
+src/contextworker/
+├── __main__.py          # CLI: gRPC service (default) or --temporal
+├── config.py            # WorkerConfig (Pydantic settings)
+├── service.py           # gRPC WorkerService
+├── server.py            # gRPC server setup
+├── schedules.py         # Temporal schedule management
+├── interceptors.py      # gRPC interceptors
+│
+├── core/
+│   ├── registry.py      # WorkerRegistry, ModuleConfig, plugin discovery
+│   └── worker.py        # Temporal client setup and worker creation
+│
+├── subagents/           # Sub-agent execution framework
+│   ├── executor.py      # SubAgentExecutor (orchestrator)
+│   ├── isolation.py     # IsolationManager, IsolationContext
+│   ├── brain_integration.py  # Step recording to Brain
+│   ├── local_compute.py # Sandboxed Python execution
+│   ├── rlm_tool.py      # RLM tool integration
+│   └── monitor.py       # Execution monitoring
+│
+└── jobs/
+    └── retention.py     # Data retention policies
+```
+
+## Key Design Principle
+
+> **Worker contains NO business logic.** It provides infrastructure only.
+
+Business logic lives in domain packages:
+- Commerce harvesting → **ContextCommerce** (registers workflows)
+- AI enrichment → **ContextRouter** (runs agents)
+
+Modules register themselves via the `WorkerRegistry` and are discovered at startup.
+
+## Links
+
+- [Workflows & Activities](/worker/workflows/) — Temporal workflow patterns
+- [Schedules](/worker/schedules/) — Cron-based job management
+- [Agent System](/worker/agents/) — Sub-agent execution framework
+- [Configuration](/worker/configuration/) — Environment variables
+- [GitHub Repository](https://github.com/ContextUnity/contextworker)

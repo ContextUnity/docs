@@ -1,6 +1,0 @@
-# Cloudflare Pages configuration for ContextRouter documentation
-name = "contextrouter-docs"
-compatibility_date = "2024-01-01"
-
-# For Cloudflare Pages deployment
-# Use: wrangler pages deploy dist --project-name="contextrouter-docs" --branch=main

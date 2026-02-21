@@ -1,0 +1,79 @@
+---
+title: ContextUnity
+description: Modular AI Infrastructure — Agents, Memory, Workflows
+template: splash
+hero:
+  tagline: A modular, open-source infrastructure for building production AI systems. Orchestrate agents, manage knowledge, and run durable workflows — all connected through a unified protocol.
+  image:
+    file: ../../assets/contextunity.jpg
+    alt: ContextUnity Ecosystem
+  actions:
+    - text: Get Started
+      link: /quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: GitHub
+      link: https://github.com/ContextUnity
+      icon: external
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+## Open-Source Core
+
+Four foundational services — all Apache 2.0 licensed.
+
+<CardGrid>
+  <Card title="ContextCore" icon="puzzle">
+    The kernel. Defines `ContextUnit`, `ContextToken`, gRPC contracts, and shared configuration used by every service.
+    **[Read Docs →](/core/)**
+  </Card>
+  <Card title="ContextRouter" icon="random">
+    The mind. Orchestrates LangGraph agents, routes LLM requests, manages tools via a secure gRPC dispatcher.
+    **[Read Docs →](/router/)**
+  </Card>
+  <Card title="ContextBrain" icon="document">
+    The memory. PostgreSQL + pgvector knowledge store with hybrid RAG, episodic memory, and taxonomy management.
+    **[Read Docs →](/brain/)**
+  </Card>
+  <Card title="ContextWorker" icon="setting">
+    The hands. Temporal.io-based durable workflows, scheduled jobs, and background agent execution.
+    **[Read Docs →](/worker/)**
+  </Card>
+</CardGrid>
+
+---
+
+## Enterprise Services
+
+Production-grade commercial extensions for security, privacy, commerce, and observability.
+
+<CardGrid>
+  <Card title="ContextShield 🔒" icon="warning">
+    AI Firewall — token signing (Ed25519/KMS), prompt injection detection, PII scanning.
+    **[Read Docs →](/shield/)**
+  </Card>
+  <Card title="ContextZero 🔒" icon="moon">
+    Privacy Proxy — PII masking, persona engine, database obfuscation before LLM calls.
+    **[Read Docs →](/zero/)**
+  </Card>
+  <Card title="ContextCommerce 🔒" icon="star">
+    E-commerce PIM — Django/Oscar product management, AI enrichment, taxonomy sync.
+    **[Read Docs →](/commerce/)**
+  </Card>
+  <Card title="ContextView 🔒" icon="laptop">
+    Admin Dashboard — agent observability, Temporal monitoring, trace visualization.
+    **[Read Docs →](/view/)**
+  </Card>
+</CardGrid>
+
+---
+
+## Quick Links
+
+<CardGrid>
+  <LinkCard title="Architecture" href="/architecture/" description="How the services connect and communicate." />
+  <LinkCard title="ContextUnit Protocol" href="/concepts/contextunit/" description="The universal data envelope for all gRPC calls." />
+  <LinkCard title="Security Model" href="/concepts/contexttoken/" description="Capability-based tokens and zero-trust authorization." />
+  <LinkCard title="Quick Start" href="/quickstart/" description="Install and run your first agent in minutes." />
+</CardGrid>
