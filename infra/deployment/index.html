@@ -97,7 +97,7 @@ svg:where(.astro-fdbtcs7b){color:var(--sl-icon-color);font-size:var(--sl-icon-si
 <li><strong>Security</strong>: Security is always on. Per-project HMAC (<code dir="auto">CU_PROJECT_SECRET</code>) or Enterprise Shield (<code dir="auto">CU_SHIELD_GRPC_URL</code>). Redis secrets encrypted (<code dir="auto">REDIS_SECRET_KEY</code>). gRPC connections enforce TLS (<code dir="auto">GRPC_TLS_ENABLED=true</code>) or mTLS if required.</li>
 </ul>
 <h2 id="2-horizontal-scaling">2. Horizontal Scaling</h2>
-<p>Every Python service (<code dir="auto">contextunity.router</code>, <code dir="auto">contextunity.brain</code>, <code dir="auto">contextunity.worker</code>, <code dir="auto">cu.zero</code>) is designed to be <strong>stateless</strong>.</p>
+<p>Every Python service (<code dir="auto">contextunity.router</code>, <code dir="auto">contextunity.brain</code>, <code dir="auto">contextunity.worker</code>) is designed to be <strong>stateless</strong>.</p>
 <h3 id="the-flow-of-scaling">The Flow of Scaling</h3>
 <ol>
 <li><strong>Spin Up</strong>: A new container of <code dir="auto">contextunity.brain</code> starts up.</li>
