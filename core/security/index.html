@@ -144,7 +144,7 @@ If a project’s <code dir="auto">contextunity.project.yaml</code> declares that
 <h2 id="redis-integrity-protection-encrypt-then-mac">Redis Integrity Protection (Encrypt-then-MAC)</h2>
 <p>ContextUnity uses Redis for service discovery, ephemeral registration state,
 caching, and session coordination. Redis itself does <strong>not</strong> store project HMAC
-or session secrets in v1alpha7; those are resolved from environment variables
+or session secrets in v1alpha8; those are resolved from environment variables
 (<code dir="auto">CU_PROJECT_SECRET</code>) or fetched from contextunity.shield at verification time.</p>
 <p>Required Configuration for <strong>all</strong> ContextUnity platform services (Router, Brain, Worker, View, etc.):</p>
 <div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">REDIS_URL</span><span style="--0:#C792EA;--1:#8844AE">=</span><span style="--0:#ECC48D;--1:#3B61B0">redis://localhost:6379/0</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="REDIS_URL=redis://localhost:6379/0"><div></div></button></div></figure></div>
@@ -152,7 +152,7 @@ or session secrets in v1alpha7; those are resolved from environment variables
 <div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">REDIS_URL</span><span style="--0:#C792EA;--1:#8844AE">=</span><span style="--0:#ECC48D;--1:#3B61B0">rediss://redis.example.com:6379/0</span></div></div></code></pre><div class="copy"><button title="Copy to clipboard" data-copied="Copied!" data-code="REDIS_URL=rediss://redis.example.com:6379/0"><div></div></button></div></figure></div>
 <blockquote>
 <p><strong>Note on legacy <code dir="auto">REDIS_SECRET_KEY</code></strong>: Earlier versions supported at-rest
-encryption of project secrets stored in Redis. v1alpha7 retires that store;
+encryption of project secrets stored in Redis. v1alpha8 retires that store;
 project key material now comes from env or Shield. The old key variable is
 ignored by platform services and should be removed from deployment templates.</p>
 </blockquote>

@@ -111,7 +111,15 @@ svg:where(.astro-fdbtcs7b){color:var(--sl-icon-color);font-size:var(--sl-icon-si
 
 
 
-<table><thead><tr><th>Module</th><th>Purpose</th></tr></thead><tbody><tr><td><code dir="auto">orchestrator.py</code></td><td>Durable execution of registered tools and Router graphs</td></tr><tr><td><code dir="auto">retention.py</code></td><td>Data retention policies and cleanup</td></tr></tbody></table>
+
+
+
+
+
+
+
+
+<table><thead><tr><th>Module</th><th>Purpose</th></tr></thead><tbody><tr><td><code dir="auto">orchestrator.py</code></td><td>Durable execution of registered tools and Router graphs</td></tr><tr><td><code dir="auto">memory_synthesis.py</code></td><td>Temporal adapter for the bounded platform memory-maintenance runtime</td></tr><tr><td><code dir="auto">embedding_enrichment.py</code></td><td>Temporal adapter for BrainCell vector enrichment</td></tr><tr><td><code dir="auto">retention.py</code></td><td>Fail-closed tombstone for the removed legacy retention entrypoint</td></tr></tbody></table>
 <h2 id="module-registry">Module Registry</h2>
 <p>Domain-specific plugins register their workflows and activities via the <code dir="auto">WorkerRegistry</code>:</p>
 <div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="python"><code><div class="ec-line"><div class="code"><span style="--0:#C792EA;--1:#8844AE">from</span><span style="--0:#D6DEEB;--1:#403F53"> contextunity.worker.core.registry </span><span style="--0:#C792EA;--1:#8844AE">import</span><span style="--0:#D6DEEB;--1:#403F53"> WorkerRegistry</span></div></div><div class="ec-line"><div class="code">
